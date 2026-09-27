@@ -1,0 +1,1665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>N8VCL's Net Roster Logger</title>
+<style>
+  :root{
+    --bg:#12160f;
+    --panel:#1b2117;
+    --panel-alt:#232b1d;
+    --border:#3a4432;
+    --border-soft:#2a331f;
+    --text:#e9ecdf;
+    --text-dim:#8fa383;
+    --accent:#e2a83f;
+    --accent-dim:#7a5f26;
+    --good:#67b877;
+    --bad:#d9704f;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Roboto Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  html[data-theme="highvis"]{
+    --bg:#000000;
+    --panel:#0d0d0d;
+    --panel-alt:#1a1a1a;
+    --border:#7a7a7a;
+    --border-soft:#555555;
+    --text:#ffffff;
+    --text-dim:#d8d8d8;
+    --accent:#ffd400;
+    --accent-dim:#b39400;
+    --good:#00e676;
+    --bad:#ff6b52;
+  }
+  html[data-theme="light"]{
+    --bg:#f6f4ee;
+    --panel:#ffffff;
+    --panel-alt:#f1ede1;
+    --border:#c7bfab;
+    --border-soft:#ddd5c1;
+    --text:#1b1b17;
+    --text-dim:#5c5747;
+    --accent:#8a5a12;
+    --accent-dim:#c98f2e;
+    --good:#1c7d3f;
+    --bad:#b3392b;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);height:100%;}
+  body{height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+  header, nav.tabs{flex-shrink:0;}
+  .content-wrap{flex:1;display:flex;min-height:0;overflow:hidden;}
+  button{font-family:var(--sans);cursor:pointer;}
+  input,select,textarea{font-family:var(--sans);}
+
+  /* ---------- Header ---------- */
+  header{
+    background:linear-gradient(180deg,var(--panel-alt),var(--panel));
+    border-bottom:1px solid var(--border);
+    padding:18px 24px 14px;
+  }
+  .header-top{
+    display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;
+  }
+  .net-name-wrap{position:relative;display:inline-block;}
+  .net-name-wrap::after{
+    content:'▾';position:absolute;right:-4px;top:50%;transform:translateY(-50%);
+    color:var(--text-dim);font-size:13px;pointer-events:none;
+  }
+  .net-name-select{
+    appearance:none;-webkit-appearance:none;-moz-appearance:none;
+    background:transparent;border:none;color:var(--text);
+    font-size:26px;font-weight:700;letter-spacing:.2px;font-family:var(--sans);
+    cursor:pointer;padding-right:20px;max-width:70vw;width:auto;
+  }
+  .net-name-select:hover{color:var(--accent);}
+  .net-name-select:focus{outline:none;color:var(--accent);}
+  .net-name-select option{background:var(--panel);color:var(--text);font-size:14px;font-weight:400;}
+  .ncs{
+    font-family:var(--mono);color:var(--accent);font-size:15px;
+  }
+  .clocks{
+    display:flex;gap:14px;margin-top:14px;flex-wrap:wrap;
+  }
+  .clock-box{
+    background:var(--panel);border:1px solid var(--border);border-radius:6px;
+    padding:10px 16px;min-width:150px;flex:1;
+  }
+  .clock-label{
+    font-size:11px;text-transform:none;color:var(--text-dim);margin-bottom:4px;
+  }
+  .clock-date{
+    font-size:11.5px;color:var(--text-dim);margin-bottom:2px;
+  }
+  .clock-value{
+    font-family:var(--mono);font-size:22px;color:var(--text);letter-spacing:1px;
+  }
+  .clock-box.timer .clock-value{color:var(--accent);}
+  .clock-box.timer.running .clock-value{color:var(--good);}
+  .timer-buttons{margin-top:8px;display:flex;gap:6px;}
+  .timer-buttons button{
+    background:var(--panel-alt);border:1px solid var(--border);color:var(--text);
+    border-radius:4px;padding:4px 10px;font-size:12px;
+  }
+  .timer-buttons button:hover{border-color:var(--accent);}
+  .timer-buttons button.stop{color:var(--bad);}
+
+  /* ---------- Tabs ---------- */
+  nav.tabs{
+    display:flex;gap:2px;background:var(--panel);border-bottom:1px solid var(--border);
+    padding:0 24px;flex-wrap:wrap;
+  }
+  nav.tabs button{
+    background:transparent;border:none;color:var(--text-dim);
+    padding:12px 14px;font-size:13.5px;border-bottom:2px solid transparent;
+    display:flex;align-items:center;gap:7px;
+  }
+  nav.tabs button .dot{
+    width:6px;height:6px;border-radius:50%;background:var(--border);
+  }
+  nav.tabs button.active{color:var(--text);border-bottom-color:var(--accent);}
+  nav.tabs button.active .dot{background:var(--accent);box-shadow:0 0 6px var(--accent);}
+  nav.tabs button:hover{color:var(--text);}
+
+  main{flex:1;padding:24px;overflow-y:auto;min-height:0;}
+  main>.tabpanel{max-width:900px;margin:0 auto;}
+
+  .checkins-pane{
+    --checkins-scale:1;
+    width:220px;flex-shrink:0;border-left:1px solid var(--border);position:relative;
+    background:var(--panel);display:flex;flex-direction:column;overflow:hidden;
+  }
+  .checkins-resize-handle{
+    position:absolute;left:-5px;top:0;bottom:0;width:10px;cursor:col-resize;z-index:5;
+    background:transparent;
+  }
+  .checkins-resize-handle:hover, .checkins-resize-handle.dragging{
+    background:linear-gradient(90deg, transparent, var(--accent-dim) 45%, var(--accent-dim) 55%, transparent);
+    opacity:.5;
+  }
+  .checkins-pane h3{
+    flex-shrink:0;font-size:11px;text-transform:uppercase;letter-spacing:.6px;
+    color:var(--text-dim);margin:0;padding:16px 14px 10px;border-bottom:1px solid var(--border-soft);
+  }
+  .checkins-list{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px;}
+  .checkin-item{
+    padding:7px 10px;border:1px solid var(--border-soft);border-radius:5px;background:var(--panel-alt);
+    font-size:calc(16px * var(--checkins-scale));line-height:1.35;
+  }
+  .checkin-item .call{font-family:var(--mono);color:var(--accent);font-weight:600;font-size:calc(16px * var(--checkins-scale));}
+  .checkin-item .nm{display:block;color:var(--text-dim);font-size:calc(14px * var(--checkins-scale));margin-top:1px;}
+  .checkins-empty{color:var(--text-dim);font-size:12px;padding:4px 2px;}
+  @media (max-width:760px){
+    .content-wrap{flex-direction:column;}
+    .checkins-pane{width:auto !important;max-height:160px;border-left:none;border-top:1px solid var(--border);}
+    .checkins-resize-handle{display:none;}
+  }
+  .panel{
+    background:var(--panel);border:1px solid var(--border-soft);border-radius:8px;
+    padding:22px 24px;
+  }
+  h2.tab-title{margin:0 0 16px;font-size:17px;color:var(--text);font-weight:600;}
+  p.hint{color:var(--text-dim);font-size:13px;margin:0 0 16px;}
+
+  label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px;}
+  .field{margin-bottom:14px;}
+  input[type=text],input[type=date],textarea,select{
+    width:100%;background:var(--panel-alt);border:1px solid var(--border);color:var(--text);
+    border-radius:5px;padding:8px 10px;font-size:14px;
+  }
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);}
+  .row{display:flex;gap:14px;flex-wrap:wrap;}
+  .row>.field{flex:1;min-width:150px;}
+  .mono-field input{font-family:var(--mono);}
+
+  button.primary{
+    background:var(--accent);color:#1a1305;border:none;border-radius:5px;
+    padding:9px 18px;font-size:14px;font-weight:600;
+  }
+  button.primary:hover{filter:brightness(1.08);}
+  button.secondary{
+    background:transparent;border:1px solid var(--border);color:var(--text);
+    border-radius:5px;padding:9px 16px;font-size:14px;
+  }
+  button.secondary:hover{border-color:var(--accent);}
+
+  /* Main / current station card */
+  .station-card{
+    border:1px solid var(--border);border-radius:8px;background:var(--panel-alt);
+    padding:20px;margin-bottom:16px;
+  }
+  .station-call{font-family:var(--mono);font-size:34px;color:var(--accent);letter-spacing:1px;}
+  .station-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px 20px;margin-top:14px;
+  }
+  .station-grid div span.k{display:block;font-size:11px;color:var(--text-dim);}
+  .station-grid div span.v{font-size:14px;}
+  .keyhint{
+    display:flex;gap:20px;margin-top:16px;font-size:12.5px;color:var(--text-dim);
+  }
+  .keyhint kbd{
+    background:var(--panel);border:1px solid var(--border);border-radius:4px;
+    padding:2px 7px;font-family:var(--mono);color:var(--text);
+  }
+  .empty-msg{color:var(--text-dim);font-size:14px;padding:20px 0;}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;color:var(--text-dim);font-size:11.5px;padding:6px 8px;border-bottom:1px solid var(--border);}
+  td{padding:6px 8px;border-bottom:1px solid var(--border-soft);vertical-align:middle;}
+  td input,td select{padding:5px 7px;font-size:13px;}
+  tr.today-row{background:rgba(103,184,119,0.08);}
+  .del-btn{background:transparent;border:none;color:var(--bad);font-size:15px;padding:2px 6px;}
+  .del-btn:hover{color:#fff;}
+  .table-wrap{overflow-x:auto;}
+
+  .flash{
+    display:inline-block;margin-left:12px;font-size:13px;color:var(--good);
+  }
+  .flash.bad{color:var(--bad);}
+
+  .report-nums{display:flex;gap:24px;margin-top:18px;}
+  .report-nums .num-box{background:var(--panel-alt);border:1px solid var(--border);border-radius:6px;padding:14px 22px;}
+  .report-nums .num-box .n{font-family:var(--mono);font-size:30px;color:var(--accent);}
+  .report-nums .num-box .l{font-size:12px;color:var(--text-dim);margin-top:2px;}
+
+  /* Modal */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;
+    align-items:center;justify-content:center;z-index:50;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal-box{
+    background:var(--panel-alt);border:1px solid var(--accent);border-radius:8px;
+    padding:28px 32px;text-align:center;min-width:280px;
+  }
+  .modal-box h3{margin:0 0 8px;color:var(--accent);font-size:19px;}
+  .modal-box p{color:var(--text-dim);font-size:14px;margin:0 0 20px;}
+  .modal-box .btn-row{display:flex;gap:10px;justify-content:center;}
+
+  .preamble-text{
+    white-space:pre-wrap;font-family:var(--mono);font-size:15px;line-height:1.6;
+    background:var(--panel-alt);border:1px solid var(--border);border-radius:6px;padding:18px;
+  }
+
+  .roster-list{display:flex;flex-direction:column;gap:10px;}
+  .roster-entry{
+    border:1px solid var(--border);border-radius:7px;background:var(--panel-alt);
+    padding:12px 14px;
+  }
+  .roster-entry.today-row{border-color:var(--good);background:rgba(103,184,119,0.07);}
+  .roster-entry.inactive-row{opacity:0.55;}
+  .roster-line{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;}
+  .roster-line+.roster-line{margin-top:8px;}
+  .roster-field{flex:1;min-width:110px;}
+  .roster-field label{font-size:10.5px;margin-bottom:3px;}
+  .roster-field.callsign{flex:1.2;min-width:130px;}
+  .roster-field.callsign input{font-family:var(--mono);font-weight:600;}
+  .roster-field.narrow{flex:0.6;min-width:64px;}
+  .roster-entry-del{display:flex;align-items:flex-end;}
+  .roster-entry-del .del-btn{font-size:17px;padding:8px 10px;}
+  .settings-section{margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid var(--border-soft);}
+  .settings-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+  .settings-section h3{font-size:14px;color:var(--accent);margin:0 0 14px;}
+
+  @media (max-width:640px){
+    .clocks{flex-direction:column;}
+    main{padding:14px;}
+    .panel{padding:16px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="net-name-wrap">
+      <select class="net-name-select" id="netNameDisplay"></select>
+    </div>
+    <div class="ncs" id="ncsDisplay">NCS: —</div>
+  </div>
+  <div class="clocks">
+    <div class="clock-box">
+      <div class="clock-label">Local Time</div>
+      <div class="clock-date" id="localDate">—</div>
+      <div class="clock-value" id="localClock">--:--:--</div>
+    </div>
+    <div class="clock-box">
+      <div class="clock-label">UTC Time</div>
+      <div class="clock-date" id="utcDate">—</div>
+      <div class="clock-value" id="utcClock">--:--:--</div>
+    </div>
+    <div class="clock-box timer" id="timerBox">
+      <div class="clock-label">ID Timer</div>
+      <div class="clock-value" id="idTimerDisplay">10:00</div>
+      <div class="timer-buttons">
+        <button id="idTimerStart">Start</button>
+        <button id="idTimerStop" class="stop">Stop</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs" id="tabNav">
+  <button data-tab="preamble"><span class="dot"></span>Preamble</button>
+  <button data-tab="bday"><span class="dot"></span>Birthdays &amp; Anniversaries</button>
+  <button data-tab="traffic"><span class="dot"></span>Traffic</button>
+  <button data-tab="early"><span class="dot"></span>Early Check-ins</button>
+  <button data-tab="main"><span class="dot"></span>Main</button>
+  <button data-tab="endlist"><span class="dot"></span>End of the List</button>
+  <button data-tab="reports"><span class="dot"></span>Reports</button>
+  <button data-tab="settings"><span class="dot"></span>Settings</button>
+</nav>
+
+<div class="content-wrap">
+<main>
+
+  <!-- MAIN TAB -->
+  <section class="tabpanel panel" id="tab-main">
+    <h2 class="tab-title">Roll Call</h2>
+    <div id="mainContent"></div>
+  </section>
+
+  <!-- PREAMBLE TAB -->
+  <section class="tabpanel panel" id="tab-preamble" style="display:none;">
+    <h2 class="tab-title">Preamble</h2>
+    <div class="preamble-text" id="preambleDisplay"></div>
+  </section>
+
+  <!-- BIRTHDAYS TAB -->
+  <section class="tabpanel panel" id="tab-bday" style="display:none;">
+    <h2 class="tab-title">Birthdays &amp; Anniversaries — Today</h2>
+    <div id="bdayContent"></div>
+  </section>
+
+  <!-- TRAFFIC TAB -->
+  <section class="tabpanel panel" id="tab-traffic" style="display:none;">
+    <h2 class="tab-title">Traffic</h2>
+    <p class="hint">Fill in a row; press Enter or Tab out of the "Sent?" field to start the next row. Setting "Sent?" to Yes logs it to today's QTC count.</p>
+    <div class="table-wrap">
+      <table id="trafficTable">
+        <thead>
+          <tr><th>Callsign</th><th>Destination</th><th>Qty</th><th>Sent?</th></tr>
+        </thead>
+        <tbody id="trafficBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- EARLY CHECK-INS TAB -->
+  <section class="tabpanel panel" id="tab-early" style="display:none;">
+    <h2 class="tab-title">Early Check-ins</h2>
+    <p class="hint">Enter a callsign and press Enter to mark it checked in for today. Callsign accepts the full callsign or just the suffix (e.g. "AW" for W1AW) if it's unique on the roster.</p>
+    <div class="row" style="margin-top:16px;">
+      <div class="field mono-field"><label>Callsign</label><input type="text" id="earlyCallsign" class="callsign-input" autocomplete="off"></div>
+      <div class="field"><label>Name</label><input type="text" id="earlyName" autocomplete="off"></div>
+      <div class="field"><label>City</label><input type="text" id="earlyCity" autocomplete="off"></div>
+      <div class="field"><label>State</label><input type="text" id="earlyState" autocomplete="off"></div>
+    </div>
+    <span class="flash" id="earlyFlash"></span>
+  </section>
+
+  <!-- END OF LIST TAB -->
+  <section class="tabpanel panel" id="tab-endlist" style="display:none;">
+    <h2 class="tab-title">End of the List</h2>
+    <p>That is the end of the roster. Are there any late, missed, or new stations wishing to check in?</p>
+    <p class="hint">Callsign accepts the full callsign or just the suffix (e.g. "AW" for W1AW) if it's unique on the roster.</p>
+    <div class="row" style="margin-top:16px;">
+      <div class="field mono-field"><label>Callsign</label><input type="text" id="eolCallsign" class="callsign-input" autocomplete="off"></div>
+      <div class="field"><label>Name</label><input type="text" id="eolName" autocomplete="off"></div>
+      <div class="field"><label>City</label><input type="text" id="eolCity" autocomplete="off"></div>
+      <div class="field"><label>State</label><input type="text" id="eolState" autocomplete="off"></div>
+    </div>
+    <span class="flash" id="eolFlash"></span>
+  </section>
+
+  <!-- REPORTS TAB -->
+  <section class="tabpanel panel" id="tab-reports" style="display:none;">
+    <h2 class="tab-title">Reports</h2>
+    <div class="row">
+      <button class="secondary" id="reportToday">Today</button>
+      <button class="secondary" id="reportMonth">This Month</button>
+      <button class="secondary" id="reportStale30">Stale Check-ins (&gt;30 days)</button>
+      <button class="secondary" id="reportStale90">Stale Check-ins (&gt;90 days)</button>
+      <button class="secondary" id="exportRosterBtn">Export Roster CSV</button>
+    </div>
+    <div class="report-nums" id="reportNums" style="display:none;">
+      <div class="num-box"><div class="n" id="repCheckins">0</div><div class="l">Check-ins</div></div>
+      <div class="num-box"><div class="n" id="repQtc">0</div><div class="l">QTC</div></div>
+      <div class="num-box" id="sessionsBox" style="display:none;"><div class="n" id="repSessions">0</div><div class="l">Net Sessions</div></div>
+    </div>
+    <div id="staleReport" style="display:none;margin-top:18px;">
+      <h3 style="font-size:14px;color:var(--accent);margin:0 0 10px;" id="staleReportTitle"></h3>
+      <div id="staleReportBody"></div>
+    </div>
+
+    <div class="settings-section" style="margin-top:26px;padding-top:22px;border-top:1px solid var(--border-soft);">
+      <h3>Backup &amp; Restore</h3>
+      <p class="hint">Everything is stored only in this browser. Back up regularly so a cleared cache or a new machine doesn't cost you the roster and check-in history.</p>
+      <div class="row" style="align-items:center;">
+        <button class="secondary" id="backupBtn">Backup All Data</button>
+        <button class="secondary" id="restoreBtn">Restore All Data</button>
+        <input type="file" id="restoreFileInput" accept=".json,application/json" style="display:none;">
+        <span class="flash" id="backupFlash"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SETTINGS TAB -->
+  <section class="tabpanel panel" id="tab-settings" style="display:none;">
+    <h2 class="tab-title">Settings</h2>
+
+    <div class="settings-section">
+      <h3>Net Profile</h3>
+      <p class="hint">Each net profile has its own Roster, check-in history, and settings — use this to run multiple nets (e.g. a daily net and a weekly net) from the same app without mixing their rosters.</p>
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="max-width:300px;">
+          <label>Active Net</label>
+          <select id="setActiveNet"></select>
+        </div>
+        <div class="field" style="max-width:160px;">
+          <button class="secondary" id="newNetBtn" style="width:100%;">+ New Net</button>
+        </div>
+        <div class="field" style="max-width:160px;">
+          <button class="secondary" id="deleteNetBtn" style="width:100%;color:var(--bad);border-color:var(--bad);">Delete This Net</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Net Info</h3>
+      <div class="row">
+        <div class="field"><label>Net Name</label><input type="text" id="setNetName"></div>
+        <div class="field mono-field"><label>NCS Callsign</label><input type="text" id="setNcs"></div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Display</h3>
+      <div class="field" style="max-width:300px;">
+        <label>Color Theme</label>
+        <select id="setTheme">
+          <option value="default">Default (Dark)</option>
+          <option value="highvis">High Visibility (Black &amp; Yellow)</option>
+          <option value="light">Light</option>
+        </select>
+      </div>
+      <p class="hint">High Visibility uses pure black with bright yellow accents for maximum contrast — handy in bright shack lighting or for low-vision readability.</p>
+      <div class="field" style="max-width:300px;margin-top:14px;">
+        <label>Local Time Format</label>
+        <select id="setTimeFormat">
+          <option value="12">12-hour (e.g. 7:05:32 PM)</option>
+          <option value="24">24-hour (e.g. 19:05:32)</option>
+        </select>
+      </div>
+      <p class="hint">UTC Time is always shown in 24-hour format regardless of this setting.</p>
+    </div>
+
+    <div class="settings-section">
+      <h3>Preamble Script</h3>
+      <div class="field"><textarea id="setPreamble" rows="6"></textarea></div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Roster</h3>
+      <p class="hint">Callsign is split automatically into prefix / suffix for sorting (e.g. W1AW → prefix "W1", suffix "AW"; AE5EI → prefix "AE5", suffix "EI"). The roster list is always kept sorted by suffix.</p>
+      <p class="hint">Import a CSV to add or update stations in bulk. Recognized columns (any order, case-insensitive): Callsign, Name, Spouse, City, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No). Rows matching an existing callsign update that entry; other rows are added as new stations. Birthday and Anniversary accept partial info — a bare year (e.g. "1984") or just month/day (e.g. "1/4") — as well as full dates; a value with only a year won't trigger the Birthdays &amp; Anniversaries tab since the day isn't known.</p>
+      <div class="row" style="align-items:center;">
+        <div class="field" style="max-width:320px;">
+          <label>Import Roster CSV</label>
+          <input type="file" id="csvImportInput" accept=".csv,text/csv">
+        </div>
+        <span class="flash" id="csvImportFlash"></span>
+      </div>
+      <div class="roster-list" id="rosterList"></div>
+      <button class="secondary" id="addRosterRow" style="margin-top:10px;">+ Add Station</button>
+    </div>
+  </section>
+
+</main>
+
+<aside class="checkins-pane" id="checkinsPane">
+  <div class="checkins-resize-handle" id="checkinsResizeHandle" title="Drag to resize"></div>
+  <h3>Check-ins Today</h3>
+  <div class="checkins-list" id="checkinsList"></div>
+</aside>
+
+</div>
+
+<!-- ID Timer modal -->
+<div class="modal-overlay" id="idModal">
+  <div class="modal-box">
+    <h3>Time to ID</h3>
+    <p>Ten minutes have elapsed since the last identification.<br>Is there any traffic waiting?</p>
+    <div class="btn-row"><button class="primary" id="idModalOk">OK</button></div>
+  </div>
+</div>
+
+<!-- Add-to-roster confirm modal -->
+<div class="modal-overlay" id="addRosterModal">
+  <div class="modal-box">
+    <h3>Add to Roster?</h3>
+    <p id="addRosterMsg">This callsign is not on the roster. Add it?</p>
+    <div class="btn-row">
+      <button class="primary" id="addRosterYes">Yes</button>
+      <button class="secondary" id="addRosterNo">No</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================= DATA LAYER ============================= */
+const STORE_KEY = 'hamnet_store_v2';
+const LEGACY_KEY = 'hamnet_data_v1'; // single-net format from before multi-net support
+
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function defaultNetData(){
+  return {
+    settings:{
+      netName:'Net Name',
+      ncs:'',
+      preamble:'CQ NET CQ NET! Customize this preamble in Settings.',
+      theme:'default',
+      timeFormat:'12',
+      checkinsPaneWidth:220
+    },
+    roster:[],
+    qni:[],
+    qtc:[],
+    mainCursor:null,
+    mainCursorDate:null
+  };
+}
+function makeNetId(){
+  return 'net_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+}
+function defaultStore(){
+  const id = makeNetId();
+  return { version:2, activeNetId:id, nets:{ [id]: defaultNetData() } };
+}
+
+function loadStore(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(parsed && parsed.nets && parsed.activeNetId && parsed.nets[parsed.activeNetId]){
+        Object.keys(parsed.nets).forEach(id=>{
+          parsed.nets[id] = Object.assign(defaultNetData(), parsed.nets[id]);
+        });
+        return parsed;
+      }
+    }
+    const legacyRaw = localStorage.getItem(LEGACY_KEY);
+    if(legacyRaw){
+      const legacy = JSON.parse(legacyRaw);
+      const id = makeNetId();
+      const store = { version:2, activeNetId:id, nets:{ [id]: Object.assign(defaultNetData(), legacy) } };
+      localStorage.setItem(STORE_KEY, JSON.stringify(store));
+      return store;
+    }
+  }catch(e){
+    console.error('Storage read failed, starting fresh.', e);
+  }
+  return defaultStore();
+}
+
+let STORE = loadStore();
+let DATA = STORE.nets[STORE.activeNetId];
+
+function saveData(){
+  try{
+    localStorage.setItem(STORE_KEY, JSON.stringify(STORE));
+  }catch(e){
+    console.error('Storage write failed.', e);
+  }
+}
+
+function switchNet(id){
+  if(!STORE.nets[id]) return;
+  STORE.activeNetId = id;
+  DATA = STORE.nets[id];
+  saveData();
+  applyTheme();
+  renderHeader();
+  renderCheckins();
+  applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
+  showTab(currentTab);
+}
+function createNet(){
+  const id = makeNetId();
+  STORE.nets[id] = defaultNetData();
+  STORE.nets[id].settings.netName = 'New Net';
+  switchNet(id);
+  showTab('settings');
+}
+function deleteNet(id){
+  const ids = Object.keys(STORE.nets);
+  if(ids.length <= 1){ alert("You can't delete the only net — create another one first."); return; }
+  const label = (STORE.nets[id].settings.netName || id);
+  if(!confirm(`Delete "${label}" along with its entire roster and check-in history? This cannot be undone.`)) return;
+  delete STORE.nets[id];
+  if(STORE.activeNetId === id){
+    STORE.activeNetId = Object.keys(STORE.nets)[0];
+    DATA = STORE.nets[STORE.activeNetId];
+  }
+  saveData();
+  applyTheme();
+  renderHeader();
+  renderCheckins();
+  applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
+  renderSettings();
+}
+
+/* ---------- Callsign split / sort ---------- */
+function splitCallsign(cs){
+  cs = (cs||'').toUpperCase().trim();
+  let lastDigit = -1;
+  for(let i=cs.length-1;i>=0;i--){
+    if(cs[i]>='0' && cs[i]<='9'){ lastDigit = i; break; }
+  }
+  if(lastDigit === -1) return {prefix:'', suffix:cs};
+  return {prefix:cs.slice(0,lastDigit+1), suffix:cs.slice(lastDigit+1)};
+}
+
+function sortedRoster(){
+  return [...DATA.roster].sort((a,b)=>{
+    const sa = splitCallsign(a.callsign), sb = splitCallsign(b.callsign);
+    if(sa.suffix < sb.suffix) return -1;
+    if(sa.suffix > sb.suffix) return 1;
+    if(sa.prefix < sb.prefix) return -1;
+    if(sa.prefix > sb.prefix) return 1;
+    return 0;
+  });
+}
+
+function findRosterByCall(call){
+  const target = (call||'').toUpperCase().trim();
+  return DATA.roster.find(r => r.callsign.toUpperCase().trim() === target);
+}
+
+/* Accepts either a full callsign or just its suffix (e.g. "EI" for AE5EI).
+   Returns {call, status} where status is:
+     'exact'     - input matched a full callsign
+     'suffix'    - input matched exactly one roster entry by suffix; call is that entry's full callsign
+     'ambiguous' - input matched more than one entry's suffix; call is null, candidates lists them
+     'notfound'  - no match at all; call is the uppercased input, as typed */
+function resolveCallsignInput(input){
+  const target = (input||'').toUpperCase().trim();
+  if(!target) return {call:null, status:'empty'};
+  if(findRosterByCall(target)) return {call:target, status:'exact'};
+  const candidates = DATA.roster.filter(r => splitCallsign(r.callsign).suffix === target);
+  if(candidates.length === 1) return {call:candidates[0].callsign, status:'suffix'};
+  if(candidates.length > 1) return {call:null, status:'ambiguous', candidates};
+  return {call:target, status:'notfound'};
+}
+
+function insertRosterEntry(entry){
+  entry.callsign = (entry.callsign||'').toUpperCase().trim();
+  DATA.roster.push(entry);
+  saveData();
+}
+
+function addQni(callsign, notes){
+  const d = todayStr();
+  let existing = DATA.qni.find(q => q.callsign.toUpperCase()===callsign.toUpperCase() && q.date===d);
+  if(existing){ existing.notes = notes || existing.notes; }
+  else DATA.qni.push({callsign:callsign.toUpperCase(), date:d, notes: notes||''});
+}
+
+function markCheckedIn(call, notes){
+  const r = findRosterByCall(call);
+  if(!r) return false;
+  r.lastCheckin = todayStr();
+  r.inactive = false;
+  addQni(r.callsign, notes);
+  saveData();
+  renderCheckins();
+  return true;
+}
+
+function renderCheckins(){
+  const list = document.getElementById('checkinsList');
+  if(!list) return;
+  const d = todayStr();
+  const todays = DATA.qni.filter(q => q.date === d);
+  if(todays.length === 0){
+    list.innerHTML = '<div class="checkins-empty">No check-ins yet today.</div>';
+    return;
+  }
+  list.innerHTML = todays.map(q=>{
+    const r = findRosterByCall(q.callsign);
+    return `<div class="checkin-item"><span class="call">${escapeHtml(q.callsign)}</span><span class="nm">${escapeHtml(r && r.name ? r.name : '')}</span></div>`;
+  }).join('');
+  list.scrollTop = list.scrollHeight;
+}
+
+/* ---------- Check-ins pane resize ---------- */
+const CHECKINS_BASE_WIDTH = 220;
+const CHECKINS_MIN_WIDTH = 160;
+const CHECKINS_MAX_WIDTH = 520;
+function applyCheckinsPaneSize(widthPx){
+  const pane = document.getElementById('checkinsPane');
+  if(!pane) return;
+  const w = Math.max(CHECKINS_MIN_WIDTH, Math.min(CHECKINS_MAX_WIDTH, Math.round(widthPx)));
+  pane.style.width = w + 'px';
+  const scale = Math.max(0.8, Math.min(2.4, w / CHECKINS_BASE_WIDTH));
+  pane.style.setProperty('--checkins-scale', scale.toFixed(2));
+  return w;
+}
+(function setupCheckinsResize(){
+  const handle = document.getElementById('checkinsResizeHandle');
+  const pane = document.getElementById('checkinsPane');
+  let dragging = false, startX = 0, startWidth = 0;
+  function start(clientX){
+    dragging = true;
+    startX = clientX;
+    startWidth = pane.getBoundingClientRect().width;
+    handle.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+  }
+  function move(clientX){
+    if(!dragging) return;
+    applyCheckinsPaneSize(startWidth + (startX - clientX));
+  }
+  function end(){
+    if(!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.userSelect = '';
+    DATA.settings.checkinsPaneWidth = Math.round(pane.getBoundingClientRect().width);
+    saveData();
+  }
+  handle.addEventListener('mousedown', (e)=>{ start(e.clientX); e.preventDefault(); });
+  document.addEventListener('mousemove', (e)=>{ if(dragging){ move(e.clientX); e.preventDefault(); } });
+  document.addEventListener('mouseup', end);
+  handle.addEventListener('touchstart', (e)=>{ start(e.touches[0].clientX); }, {passive:true});
+  document.addEventListener('touchmove', (e)=>{ if(dragging) move(e.touches[0].clientX); }, {passive:true});
+  document.addEventListener('touchend', end);
+})();
+
+function addQtc(delta){
+  const d = todayStr();
+  let entry = DATA.qtc.find(q=>q.date===d);
+  if(!entry){ entry = {date:d, count:0}; DATA.qtc.push(entry); }
+  entry.count += delta;
+  if(entry.count < 0) entry.count = 0;
+  saveData();
+}
+
+/* ============================= TAB SWITCHING ============================= */
+let currentTab = 'main';
+function showTab(tab){
+  currentTab = tab;
+  document.querySelectorAll('.tabpanel').forEach(p=>p.style.display='none');
+  document.getElementById('tab-'+tab).style.display='block';
+  document.querySelectorAll('#tabNav button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  if(tab==='main') renderMain();
+  if(tab==='preamble') renderPreamble();
+  if(tab==='bday') renderBdays();
+  if(tab==='traffic') renderTrafficIfEmpty();
+  if(tab==='settings') renderSettings();
+}
+document.getElementById('tabNav').addEventListener('click', e=>{
+  const btn = e.target.closest('button[data-tab]');
+  if(btn) showTab(btn.dataset.tab);
+});
+
+/* ============================= HEADER ============================= */
+function renderHeader(){
+  const sel = document.getElementById('netNameDisplay');
+  sel.innerHTML = Object.entries(STORE.nets)
+    .map(([id,net]) => `<option value="${id}">${escapeHtml(net.settings.netName || '(unnamed net)')}</option>`)
+    .join('') + `<option value="__new__">+ New Net…</option>`;
+  sel.value = STORE.activeNetId;
+  document.getElementById('ncsDisplay').textContent = 'NCS: ' + (DATA.settings.ncs || '—');
+}
+document.getElementById('netNameDisplay').addEventListener('change', (e)=>{
+  const val = e.target.value;
+  if(val === '__new__'){
+    createNet();
+  } else {
+    switchNet(val);
+  }
+});
+
+function formatLocalTime(now){
+  if(DATA.settings.timeFormat === '24'){
+    return String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');
+  }
+  return now.toLocaleTimeString([], {hour:'numeric', minute:'2-digit', second:'2-digit', hour12:true});
+}
+function tick(){
+  const now = new Date();
+  document.getElementById('localClock').textContent = formatLocalTime(now);
+  document.getElementById('localDate').textContent =
+    now.toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric', year:'numeric'});
+  const h = String(now.getUTCHours()).padStart(2,'0');
+  const m = String(now.getUTCMinutes()).padStart(2,'0');
+  const s = String(now.getUTCSeconds()).padStart(2,'0');
+  document.getElementById('utcClock').textContent = h+':'+m+':'+s+'Z';
+  document.getElementById('utcDate').textContent =
+    now.toLocaleDateString(undefined, {timeZone:'UTC', weekday:'short', month:'short', day:'numeric', year:'numeric'});
+}
+setInterval(tick, 1000); tick();
+
+/* ---------- ID Timer ---------- */
+const ID_SECONDS = 600;
+let idRemaining = ID_SECONDS;
+let idInterval = null;
+
+function formatMMSS(sec){
+  const m = Math.floor(sec/60), s = sec%60;
+  return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+function renderIdTimer(){
+  document.getElementById('idTimerDisplay').textContent = formatMMSS(idRemaining);
+}
+function beep(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type='sine'; osc.frequency.value=880;
+    gain.gain.value=0.2;
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start();
+    setTimeout(()=>{ osc.stop(); ctx.close(); }, 500);
+  }catch(e){ /* audio not available */ }
+}
+function idTick(){
+  idRemaining--;
+  renderIdTimer();
+  if(idRemaining <= 0){
+    clearInterval(idInterval); idInterval=null;
+    document.getElementById('timerBox').classList.remove('running');
+    beep();
+    document.getElementById('idModal').classList.add('show');
+  }
+}
+document.getElementById('idTimerStart').addEventListener('click', ()=>{
+  if(idInterval) return;
+  document.getElementById('timerBox').classList.add('running');
+  idInterval = setInterval(idTick, 1000);
+});
+document.getElementById('idTimerStop').addEventListener('click', ()=>{
+  if(idInterval){ clearInterval(idInterval); idInterval=null; }
+  idRemaining = ID_SECONDS;
+  document.getElementById('timerBox').classList.remove('running');
+  renderIdTimer();
+});
+document.getElementById('idModalOk').addEventListener('click', ()=>{
+  document.getElementById('idModal').classList.remove('show');
+  idRemaining = ID_SECONDS;
+  renderIdTimer();
+  document.getElementById('timerBox').classList.add('running');
+  idInterval = setInterval(idTick, 1000);
+});
+renderIdTimer();
+
+/* ============================= MAIN TAB ============================= */
+function getNextEligibleIndex(list, startIdx){
+  const d = todayStr();
+  for(let i=startIdx;i<list.length;i++){
+    if(list[i].inactive) continue;
+    if(list[i].lastCheckin !== d) return i;
+  }
+  return -1;
+}
+
+function renderMain(skipCheckinRevalidate){
+  if(DATA.mainCursorDate !== todayStr()){
+    DATA.mainCursor = null;
+    DATA.mainCursorDate = todayStr();
+    saveData();
+  }
+  const list = sortedRoster();
+  if(list.length === 0){
+    document.getElementById('mainContent').innerHTML =
+      '<p class="empty-msg">The roster is empty. Add stations in Settings → Roster.</p>';
+    return;
+  }
+  if(DATA.mainCursor === null || DATA.mainCursor === undefined){
+    DATA.mainCursor = getNextEligibleIndex(list, 0);
+  } else if(DATA.mainCursor >= 0 && DATA.mainCursor < list.length){
+    const cur = list[DATA.mainCursor];
+    const stale = cur.inactive || (!skipCheckinRevalidate && cur.lastCheckin === todayStr());
+    if(stale){
+      DATA.mainCursor = getNextEligibleIndex(list, DATA.mainCursor);
+    }
+  }
+  if(DATA.mainCursor === -1 || DATA.mainCursor >= list.length){
+    showTab('endlist');
+    return;
+  }
+  const r = list[DATA.mainCursor];
+  document.getElementById('mainContent').innerHTML = `
+    <div class="station-card">
+      <div class="station-call">${escapeHtml(r.callsign)}</div>
+      <div class="station-grid">
+        <div><span class="k">Name</span><span class="v">${escapeHtml(r.name||'—')}</span></div>
+        <div><span class="k">Spouse</span><span class="v">${escapeHtml(r.spouse||'—')}</span></div>
+        <div><span class="k">City</span><span class="v">${escapeHtml(r.city||'—')}</span></div>
+        <div><span class="k">State</span><span class="v">${escapeHtml(r.state||'—')}</span></div>
+        <div><span class="k">Birthday</span><span class="v">${escapeHtml(formatBirthAnniv(r.birthday)||'—')}</span></div>
+        <div><span class="k">Anniversary</span><span class="v">${escapeHtml(formatBirthAnniv(r.anniversary)||'—')}</span></div>
+        <div><span class="k">Last Check-in</span><span class="v">${escapeHtml(r.lastCheckin||'never')}</span></div>
+      </div>
+      <div class="field" style="margin-top:16px;">
+        <label>Notes</label>
+        <input type="text" id="mainNotes" autocomplete="off" placeholder="Short note for this check-in...">
+      </div>
+      <label style="display:flex;align-items:center;gap:7px;margin-top:12px;font-size:13px;color:var(--text-dim);cursor:pointer;">
+        <input type="checkbox" id="mainInactive" style="width:auto;"> Mark this station Inactive (hide from Main roll call)
+      </label>
+      <div class="keyhint">
+        <span><kbd>Space</kbd> check in &amp; next</span>
+        <span><kbd>→</kbd> skip to next (no check-in)</span>
+        <span><kbd>←</kbd> back one station</span>
+      </div>
+    </div>
+  `;
+  document.getElementById('mainInactive').addEventListener('change', (e)=>{
+    r.inactive = e.target.checked;
+    saveData();
+    if(r.inactive){
+      const l = sortedRoster();
+      DATA.mainCursor = getNextEligibleIndex(l, DATA.mainCursor+1);
+      saveData();
+      renderMain();
+    }
+  });
+}
+
+function mainAdvance(markCheckin){
+  const list = sortedRoster();
+  if(DATA.mainCursor === -1 || DATA.mainCursor === null || DATA.mainCursor === undefined) return;
+  const r = list[DATA.mainCursor];
+  if(markCheckin && r){
+    const notes = (document.getElementById('mainNotes')||{}).value || '';
+    markCheckedIn(r.callsign, notes);
+  }
+  const nextIdx = getNextEligibleIndex(list, DATA.mainCursor+1);
+  DATA.mainCursor = nextIdx;
+  saveData();
+  renderMain();
+}
+
+function mainGoBack(){
+  const list = sortedRoster();
+  if(DATA.mainCursor === null || DATA.mainCursor === undefined) return;
+  let prev = (DATA.mainCursor === -1 ? list.length : DATA.mainCursor) - 1;
+  while(prev >= 0 && list[prev].inactive) prev--;
+  if(prev < 0) return; // already at the first station, nowhere further back to go
+  DATA.mainCursor = prev;
+  saveData();
+  renderMain(true);
+}
+
+document.addEventListener('keydown', (e)=>{
+  if(currentTab !== 'main') return;
+  const active = document.activeElement;
+  const isEditable = active && (active.tagName==='INPUT' || active.tagName==='TEXTAREA' || active.tagName==='SELECT');
+  if(isEditable) return; // let typing happen normally
+  if(e.code === 'Space'){ e.preventDefault(); mainAdvance(true); }
+  if(e.code === 'ArrowRight'){ e.preventDefault(); mainAdvance(false); }
+  if(e.code === 'ArrowLeft'){ e.preventDefault(); mainGoBack(); }
+});
+
+/* Force any callsign field to uppercase as the user types, regardless of Caps Lock */
+document.addEventListener('input', (e)=>{
+  const el = e.target;
+  if(!el.classList || !el.classList.contains('callsign-input')) return;
+  const upper = el.value.toUpperCase();
+  if(upper === el.value) return;
+  const start = el.selectionStart, end = el.selectionEnd;
+  el.value = upper;
+  try{ el.setSelectionRange(start, end); }catch(err){}
+});
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ============================= PREAMBLE TAB ============================= */
+function renderPreamble(){
+  document.getElementById('preambleDisplay').textContent = DATA.settings.preamble || '';
+}
+
+/* ============================= BIRTHDAYS TAB ============================= */
+function renderBdays(){
+  const now = new Date();
+  const mm = String(now.getMonth()+1).padStart(2,'0');
+  const dd = String(now.getDate()).padStart(2,'0');
+  const rows = [];
+  DATA.roster.forEach(r=>{
+    if(r.birthday && matchesTodayMonthDay(r.birthday, mm, dd)){
+      rows.push({call:r.callsign, name:r.name, spouse:r.spouse, type:'Birthday'});
+    }
+    if(r.anniversary && matchesTodayMonthDay(r.anniversary, mm, dd)){
+      rows.push({call:r.callsign, name:r.name, spouse:r.spouse, type:'Anniversary'});
+    }
+  });
+  if(rows.length===0){
+    document.getElementById('bdayContent').innerHTML = '<p class="empty-msg">No birthdays or anniversaries today.</p>';
+    return;
+  }
+  let html = '<table><thead><tr><th>Callsign</th><th>Name</th><th>Spouse</th><th></th></tr></thead><tbody>';
+  rows.forEach(row=>{
+    html += `<tr><td>${escapeHtml(row.call)}</td><td>${escapeHtml(row.name||'')}</td><td>${escapeHtml(row.spouse||'')}</td><td>${row.type}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('bdayContent').innerHTML = html;
+}
+
+/* ============================= TRAFFIC TAB ============================= */
+let trafficRowId = 0;
+function trafficRowHtml(id){
+  return `
+    <tr data-row="${id}">
+      <td><input type="text" class="t-call callsign-input" autocomplete="off"></td>
+      <td><input type="text" class="t-dest" autocomplete="off"></td>
+      <td><input type="text" class="t-qty" autocomplete="off" style="max-width:70px;"></td>
+      <td>
+        <select class="t-sent" data-counted="0">
+          <option value="">—</option>
+          <option value="Yes">Yes</option>
+          <option value="No">No</option>
+        </select>
+      </td>
+    </tr>
+  `;
+}
+function addTrafficRow(focus){
+  trafficRowId++;
+  const tbody = document.getElementById('trafficBody');
+  tbody.insertAdjacentHTML('beforeend', trafficRowHtml(trafficRowId));
+  const row = tbody.querySelector(`tr[data-row="${trafficRowId}"]`);
+  wireTrafficRow(row);
+  if(focus) row.querySelector('.t-call').focus();
+}
+function wireTrafficRow(row){
+  const sentSelect = row.querySelector('.t-sent');
+  sentSelect.addEventListener('change', ()=>{
+    const wasCounted = sentSelect.dataset.counted === '1';
+    if(sentSelect.value === 'Yes' && !wasCounted){
+      addQtc(1); sentSelect.dataset.counted = '1';
+    } else if(sentSelect.value !== 'Yes' && wasCounted){
+      addQtc(-1); sentSelect.dataset.counted = '0';
+    }
+  });
+  row.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        maybeAddNextRow(row);
+      }
+    });
+  });
+  sentSelect.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ e.preventDefault(); maybeAddNextRow(row); }
+  });
+}
+function maybeAddNextRow(row){
+  const isLast = row === document.getElementById('trafficBody').lastElementChild;
+  const callVal = row.querySelector('.t-call').value.trim();
+  if(isLast && callVal){
+    addTrafficRow(true);
+  }
+}
+function renderTrafficIfEmpty(){
+  const tbody = document.getElementById('trafficBody');
+  if(tbody.children.length === 0) addTrafficRow(true);
+}
+
+/* ============================= EARLY CHECK-INS + END OF LIST (shared) ============================= */
+let pendingNewStation = null;
+let pendingClearFields = null;
+let pendingFlashEl = null;
+
+function makeCheckinForm(prefix, flashId){
+  function fields(){
+    return {
+      callsign: document.getElementById(prefix+'Callsign'),
+      name: document.getElementById(prefix+'Name'),
+      city: document.getElementById(prefix+'City'),
+      state: document.getElementById(prefix+'State')
+    };
+  }
+  function clearFields(){
+    const f = fields();
+    f.callsign.value=''; f.name.value=''; f.city.value=''; f.state.value='';
+    f.callsign.focus();
+  }
+  function submit(){
+    const f = fields();
+    const callRaw = f.callsign.value.trim();
+    if(!callRaw) return;
+    const flash = document.getElementById(flashId);
+    const resolved = resolveCallsignInput(callRaw);
+    if(resolved.status === 'ambiguous'){
+      flash.textContent = `"${callRaw.toUpperCase()}" matches ${resolved.candidates.map(c=>c.callsign).join(', ')} — type the full callsign.`;
+      flash.classList.add('bad');
+      return;
+    }
+    const call = resolved.call || callRaw;
+    const existing = findRosterByCall(call);
+    if(existing){
+      markCheckedIn(call, '');
+      flash.textContent = `${call.toUpperCase()} checked in.`;
+      flash.classList.remove('bad');
+      clearFields();
+    }else{
+      pendingNewStation = {
+        callsign: call.toUpperCase(),
+        name: f.name.value.trim(),
+        city: f.city.value.trim(),
+        state: f.state.value.trim()
+      };
+      pendingClearFields = clearFields;
+      pendingFlashEl = flash;
+      document.getElementById('addRosterMsg').textContent =
+        `${call.toUpperCase()} is not on the roster. Add it?`;
+      document.getElementById('addRosterModal').classList.add('show');
+    }
+  }
+  Object.values(fields()).forEach(inp=>{
+    inp.addEventListener('keydown', e=>{
+      if(e.key === 'Enter'){ e.preventDefault(); submit(); }
+    });
+  });
+}
+makeCheckinForm('early', 'earlyFlash');
+makeCheckinForm('eol', 'eolFlash');
+
+document.getElementById('addRosterYes').addEventListener('click', ()=>{
+  if(pendingNewStation){
+    insertRosterEntry({
+      callsign: pendingNewStation.callsign,
+      name: pendingNewStation.name,
+      spouse:'', city: pendingNewStation.city, state: pendingNewStation.state,
+      url:'', birthday:'', anniversary:'', lastCheckin: todayStr()
+    });
+    addQni(pendingNewStation.callsign, '');
+    saveData();
+    renderCheckins();
+  }
+  document.getElementById('addRosterModal').classList.remove('show');
+  if(pendingFlashEl){
+    pendingFlashEl.textContent = `${pendingNewStation.callsign} added and checked in.`;
+    pendingFlashEl.classList.remove('bad');
+  }
+  pendingNewStation = null;
+  if(pendingClearFields) pendingClearFields();
+});
+document.getElementById('addRosterNo').addEventListener('click', ()=>{
+  document.getElementById('addRosterModal').classList.remove('show');
+  pendingNewStation = null;
+  if(pendingClearFields) pendingClearFields();
+});
+
+/* ============================= REPORTS TAB ============================= */
+document.getElementById('reportToday').addEventListener('click', ()=>{
+  hideStaleReport();
+  const d = todayStr();
+  const checkins = DATA.roster.filter(r=>r.lastCheckin===d).length;
+  const qtc = DATA.qtc.find(q=>q.date===d);
+  showReport(checkins, qtc ? qtc.count : 0);
+});
+document.getElementById('reportMonth').addEventListener('click', ()=>{
+  hideStaleReport();
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const inMonth = (dateStr) => {
+    const d = new Date(dateStr+'T00:00:00');
+    return d.getFullYear()===y && d.getMonth()===m;
+  };
+  const checkins = DATA.roster.filter(r => r.lastCheckin && inMonth(r.lastCheckin)).length;
+  const qtcTotal = DATA.qtc.filter(q => inMonth(q.date)).reduce((sum,q)=>sum+q.count,0);
+  const sessionDates = new Set(DATA.qni.filter(q => inMonth(q.date)).map(q=>q.date));
+  showReport(checkins, qtcTotal, sessionDates.size);
+});
+function showReport(checkins, qtc, sessions){
+  document.getElementById('reportNums').style.display='flex';
+  document.getElementById('repCheckins').textContent = checkins;
+  document.getElementById('repQtc').textContent = qtc;
+  const box = document.getElementById('sessionsBox');
+  if(sessions === undefined){
+    box.style.display = 'none';
+  } else {
+    box.style.display = 'block';
+    document.getElementById('repSessions').textContent = sessions;
+  }
+}
+function hideReportNums(){
+  document.getElementById('reportNums').style.display='none';
+}
+function hideStaleReport(){
+  document.getElementById('staleReport').style.display='none';
+}
+
+function daysSinceCheckin(dateStr){
+  if(!dateStr) return Infinity;
+  const d = new Date(dateStr+'T00:00:00');
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  return Math.floor((now-d)/(1000*60*60*24));
+}
+
+function removeRosterEntry(callsign){
+  DATA.roster = DATA.roster.filter(r => r.callsign.toUpperCase() !== callsign.toUpperCase());
+  DATA.mainCursor = null;
+  saveData();
+}
+
+function showStaleReport(thresholdDays){
+  hideReportNums();
+  const stale = DATA.roster
+    .map(r => ({r, days: daysSinceCheckin(r.lastCheckin)}))
+    .filter(x => x.days > thresholdDays)
+    .sort((a,b) => b.days - a.days);
+  document.getElementById('staleReportTitle').textContent =
+    `Stations with no check-in in over ${thresholdDays} days (${stale.length})`;
+  const body = document.getElementById('staleReportBody');
+  if(stale.length === 0){
+    body.innerHTML = '<p class="empty-msg">No stations exceed that threshold.</p>';
+  } else {
+    let html = `<div style="margin-bottom:10px;"><button class="secondary" id="staleRemoveAll" style="color:var(--bad);border-color:var(--bad);">Remove All Listed (${stale.length}) from Roster</button></div>`;
+    html += '<table><thead><tr><th>Callsign</th><th>Name</th><th>City / State</th><th>Last Check-in</th><th>Days Since</th><th></th></tr></thead><tbody>';
+    stale.forEach(({r,days})=>{
+      html += `<tr>
+        <td>${escapeHtml(r.callsign)}</td>
+        <td>${escapeHtml(r.name||'')}</td>
+        <td>${escapeHtml([r.city,r.state].filter(Boolean).join(', '))}</td>
+        <td>${escapeHtml(r.lastCheckin || 'never')}</td>
+        <td>${days===Infinity ? 'never' : days}</td>
+        <td><button class="del-btn stale-remove-one" data-call="${escapeHtml(r.callsign)}" title="Remove from Roster">✕</button></td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    body.innerHTML = html;
+    body.querySelectorAll('.stale-remove-one').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const call = btn.dataset.call;
+        if(confirm(`Remove ${call} from the roster? This cannot be undone.`)){
+          removeRosterEntry(call);
+          showStaleReport(thresholdDays);
+        }
+      });
+    });
+    const removeAllBtn = document.getElementById('staleRemoveAll');
+    if(removeAllBtn){
+      removeAllBtn.addEventListener('click', ()=>{
+        if(confirm(`Remove all ${stale.length} listed station(s) from the roster? This cannot be undone.`)){
+          stale.forEach(({r}) => removeRosterEntry(r.callsign));
+          showStaleReport(thresholdDays);
+        }
+      });
+    }
+  }
+  document.getElementById('staleReport').style.display='block';
+}
+document.getElementById('reportStale30').addEventListener('click', ()=>showStaleReport(30));
+document.getElementById('reportStale90').addEventListener('click', ()=>showStaleReport(90));
+
+function csvEscape(val){
+  val = (val === null || val === undefined) ? '' : String(val);
+  if(/[",\r\n]/.test(val)) return '"' + val.replace(/"/g,'""') + '"';
+  return val;
+}
+document.getElementById('exportRosterBtn').addEventListener('click', ()=>{
+  const header = ['Callsign','Name','Spouse','City','State','URL','Birthday','Anniversary','Last Check-in','Inactive'];
+  const rows = sortedRoster().map(r => [
+    r.callsign||'', r.name||'', r.spouse||'', r.city||'', r.state||'',
+    r.url||'', r.birthday||'', r.anniversary||'', r.lastCheckin||'', r.inactive ? 'Yes' : 'No'
+  ]);
+  const csv = [header, ...rows].map(row => row.map(csvEscape).join(',')).join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeName = (DATA.settings.netName || 'roster').replace(/[^a-z0-9]+/gi,'-').toLowerCase().replace(/^-+|-+$/g,'');
+  a.href = url;
+  a.download = `${safeName || 'roster'}-${todayStr()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+/* ---------- Backup / Restore ---------- */
+document.getElementById('backupBtn').addEventListener('click', ()=>{
+  const payload = {
+    version: 1,
+    exportedAt: todayStr(),
+    settings: DATA.settings,
+    roster: DATA.roster,
+    qni: DATA.qni,
+    qtc: DATA.qtc
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const safeNetName = (DATA.settings.netName || 'Net Logger').replace(/[\/\\:*?"<>|]+/g, '-').trim();
+  a.download = `${safeNetName}-Backup-${todayStr()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  const flash = document.getElementById('backupFlash');
+  flash.textContent = 'Backup downloaded.';
+  flash.classList.remove('bad');
+});
+
+document.getElementById('restoreBtn').addEventListener('click', ()=>{
+  document.getElementById('restoreFileInput').click();
+});
+document.getElementById('restoreFileInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const flash = document.getElementById('backupFlash');
+  const reader = new FileReader();
+  reader.onload = () => {
+    let parsed;
+    try{
+      parsed = JSON.parse(reader.result);
+    }catch(err){
+      flash.textContent = 'That file is not valid JSON.';
+      flash.classList.add('bad');
+      e.target.value = '';
+      return;
+    }
+    if(!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.roster)){
+      flash.textContent = 'That file doesn\'t look like a Net Logger backup.';
+      flash.classList.add('bad');
+      e.target.value = '';
+      return;
+    }
+    const confirmed = confirm(
+      `Restore this backup${parsed.exportedAt ? ' (exported '+parsed.exportedAt+')' : ''}? ` +
+      `This will REPLACE the current Roster, QNI, QTC, and Settings in this browser. This cannot be undone.`
+    );
+    if(!confirmed){ e.target.value = ''; return; }
+    DATA.settings = Object.assign(defaultNetData().settings, parsed.settings || {});
+    DATA.roster = Array.isArray(parsed.roster) ? parsed.roster : [];
+    DATA.qni = Array.isArray(parsed.qni) ? parsed.qni : [];
+    DATA.qtc = Array.isArray(parsed.qtc) ? parsed.qtc : [];
+    DATA.mainCursor = null;
+    saveData();
+    applyTheme();
+    renderHeader();
+    renderCheckins();
+    applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
+    hideReportNums();
+    hideStaleReport();
+    flash.textContent = `Restored ${DATA.roster.length} station(s).`;
+    flash.classList.remove('bad');
+    e.target.value = '';
+  };
+  reader.onerror = () => {
+    flash.textContent = 'Could not read that file.';
+    flash.classList.add('bad');
+  };
+  reader.readAsText(file);
+});
+
+/* ============================= CSV IMPORT ============================= */
+function parseCSV(text){
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for(let i=0;i<text.length;i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){
+        if(text[i+1] === '"'){ field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else {
+      if(c === '"') inQuotes = true;
+      else if(c === ','){ row.push(field); field=''; }
+      else if(c === '\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else if(c === '\r'){ /* skip, \n handles the break */ }
+      else field += c;
+    }
+  }
+  if(field.length>0 || row.length>0){ row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(c => c.trim() !== ''));
+}
+
+const HEADER_ALIASES = {
+  'callsign':'callsign','call':'callsign',
+  'name':'name',
+  'spouse':'spouse',
+  'city':'city',
+  'state':'state',
+  'url':'url','urlqrzcom':'url','qrz':'url','qrzcom':'url',
+  'birthday':'birthday','dob':'birthday',
+  'anniversary':'anniversary',
+  'lastcheckin':'lastCheckin','lastcheckindate':'lastCheckin',
+  'inactive':'inactive'
+};
+function normalizeHeader(h){
+  return (h||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+}
+function normalizeDate(str){
+  str = (str||'').trim();
+  if(!str) return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  const d = new Date(str);
+  if(isNaN(d.getTime())) return '';
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+/* Birthday/Anniversary support partial info:
+   full date  -> "YYYY-MM-DD"
+   month+day only (no year known) -> "--MM-DD"  (ISO 8601's convention for a year-less date)
+   year only (no month/day known) -> "YYYY"
+   These can't use <input type=date>, which requires a complete date, so they're
+   stored/edited as flexible text and parsed here. */
+function pad2(n){ return String(n).padStart(2,'0'); }
+
+function normalizeDateFlexible(str){
+  str = (str||'').trim();
+  if(!str) return '';
+  let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m) return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`;
+  m = str.match(/^--(\d{1,2})-(\d{1,2})$/);
+  if(m) return `--${pad2(m[1])}-${pad2(m[2])}`;
+  if(/^\d{4}$/.test(str)) return str;
+  m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m) return `${m[3]}-${pad2(m[1])}-${pad2(m[2])}`;
+  m = str.match(/^(\d{1,2})[\/-](\d{1,2})$/);
+  if(m){
+    const mo = parseInt(m[1],10), da = parseInt(m[2],10);
+    if(mo>=1 && mo<=12 && da>=1 && da<=31) return `--${pad2(mo)}-${pad2(da)}`;
+  }
+  const d = new Date(str);
+  if(!isNaN(d.getTime())){
+    if(/\d{4}/.test(str)) return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+    return `--${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  }
+  return '';
+}
+
+const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function formatBirthAnniv(str){
+  if(!str) return '';
+  let m = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(m) return `${MONTH_ABBR[parseInt(m[2],10)-1]} ${parseInt(m[3],10)}, ${m[1]}`;
+  m = str.match(/^--(\d{2})-(\d{2})$/);
+  if(m) return `${MONTH_ABBR[parseInt(m[1],10)-1]} ${parseInt(m[2],10)} (year unknown)`;
+  if(/^\d{4}$/.test(str)) return `${str} (month/day unknown)`;
+  return str;
+}
+function toEditableDateString(str){
+  if(!str) return '';
+  const m = str.match(/^--(\d{2})-(\d{2})$/);
+  if(m) return `${parseInt(m[1],10)}/${parseInt(m[2],10)}`;
+  return str;
+}
+function matchesTodayMonthDay(str, mm, dd){
+  let m = str.match(/^\d{4}-(\d{2})-(\d{2})$/);
+  if(m) return m[1]===mm && m[2]===dd;
+  m = str.match(/^--(\d{2})-(\d{2})$/);
+  if(m) return m[1]===mm && m[2]===dd;
+  return false;
+}
+
+function importRosterCSV(text){
+  const rows = parseCSV(text);
+  if(rows.length < 2) return {added:0,updated:0,skipped:0,error:'No data rows found.'};
+  const headerRow = rows[0].map(normalizeHeader);
+  const fieldMap = {};
+  headerRow.forEach((h,i)=>{ const f = HEADER_ALIASES[h]; if(f) fieldMap[i]=f; });
+  if(!Object.values(fieldMap).includes('callsign')){
+    return {added:0,updated:0,skipped:0,error:'No "Callsign" column found in the CSV header.'};
+  }
+  let added=0, updated=0, skipped=0;
+  for(let r=1;r<rows.length;r++){
+    const cols = rows[r];
+    const obj = {};
+    Object.entries(fieldMap).forEach(([idx,field])=>{ obj[field] = (cols[idx]||'').trim(); });
+    if(!obj.callsign){ skipped++; continue; }
+    obj.callsign = obj.callsign.toUpperCase();
+    if(obj.birthday !== undefined) obj.birthday = normalizeDateFlexible(obj.birthday);
+    if(obj.anniversary !== undefined) obj.anniversary = normalizeDateFlexible(obj.anniversary);
+    if(obj.lastCheckin !== undefined) obj.lastCheckin = normalizeDate(obj.lastCheckin);
+    let inactiveVal;
+    if(obj.inactive !== undefined){
+      inactiveVal = /^(y|yes|true|1)$/i.test(obj.inactive.trim());
+    }
+    const existing = findRosterByCall(obj.callsign);
+    if(existing){
+      Object.keys(obj).forEach(k=>{ if(k !== 'inactive' && obj[k]) existing[k] = obj[k]; });
+      if(inactiveVal !== undefined) existing.inactive = inactiveVal;
+      updated++;
+    } else {
+      DATA.roster.push({
+        callsign: obj.callsign, name: obj.name||'', spouse: obj.spouse||'',
+        city: obj.city||'', state: obj.state||'', url: obj.url||'',
+        birthday: obj.birthday||'', anniversary: obj.anniversary||'', lastCheckin: obj.lastCheckin||'',
+        inactive: inactiveVal || false
+      });
+      added++;
+    }
+  }
+  saveData();
+  return {added,updated,skipped};
+}
+
+document.getElementById('csvImportInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const flash = document.getElementById('csvImportFlash');
+  const reader = new FileReader();
+  reader.onload = () => {
+    const result = importRosterCSV(reader.result);
+    if(result.error){
+      flash.textContent = result.error;
+      flash.classList.add('bad');
+    } else {
+      flash.textContent = `Added ${result.added}, updated ${result.updated}` + (result.skipped ? `, skipped ${result.skipped} (missing callsign)` : '') + '.';
+      flash.classList.remove('bad');
+      DATA.mainCursor = null;
+      saveData();
+      renderRosterTable();
+    }
+    e.target.value = '';
+  };
+  reader.onerror = () => {
+    flash.textContent = 'Could not read that file.';
+    flash.classList.add('bad');
+  };
+  reader.readAsText(file);
+});
+
+/* ============================= SETTINGS TAB ============================= */
+function renderSettings(){
+  const sel = document.getElementById('setActiveNet');
+  sel.innerHTML = Object.entries(STORE.nets)
+    .map(([id,net]) => `<option value="${id}">${escapeHtml(net.settings.netName || '(unnamed net)')}</option>`)
+    .join('');
+  sel.value = STORE.activeNetId;
+  document.getElementById('setNetName').value = DATA.settings.netName || '';
+  document.getElementById('setNcs').value = DATA.settings.ncs || '';
+  document.getElementById('setPreamble').value = DATA.settings.preamble || '';
+  document.getElementById('setTheme').value = DATA.settings.theme || 'default';
+  document.getElementById('setTimeFormat').value = DATA.settings.timeFormat || '12';
+  renderRosterTable();
+}
+document.getElementById('setActiveNet').addEventListener('change', (e)=>{
+  switchNet(e.target.value);
+});
+document.getElementById('newNetBtn').addEventListener('click', createNet);
+document.getElementById('deleteNetBtn').addEventListener('click', ()=>deleteNet(STORE.activeNetId));
+['setNetName','setNcs','setPreamble'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', ()=>{
+    DATA.settings.netName = document.getElementById('setNetName').value;
+    DATA.settings.ncs = document.getElementById('setNcs').value;
+    DATA.settings.preamble = document.getElementById('setPreamble').value;
+    saveData();
+    renderHeader();
+    const opt = document.querySelector(`#setActiveNet option[value="${STORE.activeNetId}"]`);
+    if(opt) opt.textContent = DATA.settings.netName || '(unnamed net)';
+    const headerOpt = document.querySelector(`#netNameDisplay option[value="${STORE.activeNetId}"]`);
+    if(headerOpt) headerOpt.textContent = DATA.settings.netName || '(unnamed net)';
+  });
+});
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', DATA.settings.theme || 'default');
+}
+document.getElementById('setTheme').addEventListener('change', ()=>{
+  DATA.settings.theme = document.getElementById('setTheme').value;
+  saveData();
+  applyTheme();
+});
+document.getElementById('setTimeFormat').addEventListener('change', ()=>{
+  DATA.settings.timeFormat = document.getElementById('setTimeFormat').value;
+  saveData();
+  tick();
+});
+
+function rosterEntryHtml(r, idx){
+  const d = todayStr();
+  const isToday = r.lastCheckin === d;
+  return `
+    <div class="roster-entry ${isToday?'today-row':''} ${r.inactive?'inactive-row':''}" data-idx="${idx}">
+      <div class="roster-line">
+        <div class="roster-field callsign"><label>Callsign</label><input type="text" class="r-callsign callsign-input" value="${escapeHtml(r.callsign||'')}"></div>
+        <div class="roster-field"><label>Name</label><input type="text" class="r-name" value="${escapeHtml(r.name||'')}"></div>
+        <div class="roster-field"><label>Spouse</label><input type="text" class="r-spouse" value="${escapeHtml(r.spouse||'')}"></div>
+        <div class="roster-field"><label>City</label><input type="text" class="r-city" value="${escapeHtml(r.city||'')}"></div>
+        <div class="roster-field narrow"><label>State</label><input type="text" class="r-state" value="${escapeHtml(r.state||'')}"></div>
+      </div>
+      <div class="roster-line">
+        <div class="roster-field"><label>Birthday</label><input type="text" class="r-birthday" placeholder="YYYY-MM-DD, M/D, or YYYY" value="${escapeHtml(toEditableDateString(r.birthday||''))}"></div>
+        <div class="roster-field"><label>Anniversary</label><input type="text" class="r-anniversary" placeholder="YYYY-MM-DD, M/D, or YYYY" value="${escapeHtml(toEditableDateString(r.anniversary||''))}"></div>
+        <div class="roster-field"><label>Last Check-in</label><input type="date" class="r-lastcheckin" value="${escapeHtml(r.lastCheckin||'')}"></div>
+        <div class="roster-field"><label>QRZ URL</label><input type="text" class="r-url" value="${escapeHtml(r.url||'')}"></div>
+        <div class="roster-field narrow" style="display:flex;flex-direction:column;">
+          <label>Inactive</label>
+          <input type="checkbox" class="r-inactive" style="width:auto;height:38px;" ${r.inactive?'checked':''}>
+        </div>
+        <div class="roster-entry-del"><button class="del-btn" title="Remove">✕</button></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderRosterTable(){
+  const list = sortedRoster();
+  const container = document.getElementById('rosterList');
+  container.innerHTML = list.map((r,i)=>rosterEntryHtml(r,i)).join('');
+  container.querySelectorAll('.roster-entry').forEach(entry=>{
+    const idx = Number(entry.dataset.idx);
+    const r = list[idx];
+    entry.querySelectorAll('input').forEach(inp=>{
+      inp.addEventListener('change', ()=>{
+        r.callsign = entry.querySelector('.r-callsign').value.toUpperCase().trim();
+        r.name = entry.querySelector('.r-name').value;
+        r.spouse = entry.querySelector('.r-spouse').value;
+        r.city = entry.querySelector('.r-city').value;
+        r.state = entry.querySelector('.r-state').value;
+        r.url = entry.querySelector('.r-url').value;
+        r.birthday = normalizeDateFlexible(entry.querySelector('.r-birthday').value);
+        r.anniversary = normalizeDateFlexible(entry.querySelector('.r-anniversary').value);
+        r.lastCheckin = entry.querySelector('.r-lastcheckin').value;
+        r.inactive = entry.querySelector('.r-inactive').checked;
+        saveData();
+        renderRosterTable();
+      });
+    });
+    entry.querySelector('.del-btn').addEventListener('click', ()=>{
+      const target = list[idx];
+      DATA.roster = DATA.roster.filter(x => x !== target);
+      DATA.mainCursor = null;
+      saveData();
+      renderRosterTable();
+    });
+  });
+}
+document.getElementById('addRosterRow').addEventListener('click', ()=>{
+  insertRosterEntry({
+    callsign:'NEW1CALL', name:'', spouse:'', city:'', state:'',
+    url:'', birthday:'', anniversary:'', lastCheckin:''
+  });
+  DATA.mainCursor = null;
+  renderRosterTable();
+});
+
+/* ============================= INIT ============================= */
+applyTheme();
+renderHeader();
+renderCheckins();
+applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
+showTab('preamble');
+</script>
+</body>
+</html>
