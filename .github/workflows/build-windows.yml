@@ -8,6 +8,10 @@ on:
       - "v*"
   workflow_dispatch: {}
 
+# Lets this workflow create a GitHub Release using the automatic token
+permissions:
+  contents: write
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -38,5 +42,16 @@ jobs:
         with:
           name: netroster-windows-installer
           path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe
+
+      # Only runs when the workflow was triggered by pushing a version tag (e.g. v1.0.0),
+      # not on manual "Run workflow" test runs. Publishes a Release with the installer
+      # attached as a downloadable asset, at a permanent, stable URL.
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe

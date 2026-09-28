@@ -454,6 +454,36 @@
         </select>
       </div>
       <p class="hint">UTC Time is always shown in 24-hour format regardless of this setting.</p>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:14px;color:var(--text);cursor:pointer;">
+        <input type="checkbox" id="setShowIdTimer" style="width:auto;"> Show the 10-minute ID timer and "Time to ID" reminder
+      </label>
+      <p class="hint">Uncheck to hide the ID Timer box entirely. Any running countdown is stopped and no reminder pop-up or beep will occur.</p>
+    </div>
+
+    <div class="settings-section">
+      <h3>File Locations</h3>
+      <p class="hint" id="fsSupportHint">Choose where Backups and Roster exports are saved. If no folder is chosen, files go to your browser's normal download location. These folder choices apply to this browser/computer (not to individual nets).</p>
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="min-width:260px;">
+          <label>Backups folder</label>
+          <div id="backupDirName" style="font-size:14px;color:var(--text);padding:8px 0;">Browser default</div>
+        </div>
+        <div class="field" style="flex:0 0 auto;min-width:0;">
+          <button class="secondary" id="chooseBackupDir">Choose Folder…</button>
+          <button class="secondary" id="clearBackupDir">Reset</button>
+        </div>
+      </div>
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="min-width:260px;">
+          <label>Roster exports folder</label>
+          <div id="exportDirName" style="font-size:14px;color:var(--text);padding:8px 0;">Browser default</div>
+        </div>
+        <div class="field" style="flex:0 0 auto;min-width:0;">
+          <button class="secondary" id="chooseExportDir">Choose Folder…</button>
+          <button class="secondary" id="clearExportDir">Reset</button>
+        </div>
+      </div>
+      <p class="hint">For privacy, browsers only reveal the folder's name, not its full path. Your browser may ask you to allow access again the next time you open the app.</p>
     </div>
 
     <div class="settings-section">
@@ -526,7 +556,8 @@ function defaultNetData(){
       preamble:'CQ NET CQ NET! Customize this preamble in Settings.',
       theme:'default',
       timeFormat:'12',
-      checkinsPaneWidth:220
+      checkinsPaneWidth:220,
+      showIdTimer:true
     },
     roster:[],
     qni:[],
@@ -589,6 +620,7 @@ function switchNet(id){
   renderHeader();
   renderCheckins();
   applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
+  applyIdTimerVisibility();
   showTab(currentTab);
 }
 function createNet(){
@@ -613,6 +645,7 @@ function deleteNet(id){
   renderHeader();
   renderCheckins();
   applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
+  applyIdTimerVisibility();
   renderSettings();
 }
 
@@ -791,22 +824,45 @@ document.getElementById('netNameDisplay').addEventListener('change', (e)=>{
 });
 
 function formatLocalTime(now){
-  if(DATA.settings.timeFormat === '24'){
-    return String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');
+  const h24 = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');
+  if(DATA.settings.timeFormat === '24') return h24;
+  try{
+    return now.toLocaleTimeString([], {hour:'numeric', minute:'2-digit', second:'2-digit', hour12:true});
+  }catch(e){
+    let hh = now.getHours();
+    const ampm = hh >= 12 ? 'PM' : 'AM';
+    hh = hh % 12 || 12;
+    return hh+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0')+' '+ampm;
   }
-  return now.toLocaleTimeString([], {hour:'numeric', minute:'2-digit', second:'2-digit', hour12:true});
+}
+const WEEKDAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function safeLocaleDate(now, useUTC){
+  try{
+    const opts = {weekday:'short', month:'short', day:'numeric', year:'numeric'};
+    if(useUTC) opts.timeZone = 'UTC';
+    return now.toLocaleDateString(undefined, opts);
+  }catch(e){
+    // Fallback for engines that don't support the timeZone/locale options used above
+    const wd = useUTC ? now.getUTCDay() : now.getDay();
+    const mo = useUTC ? now.getUTCMonth() : now.getMonth();
+    const da = useUTC ? now.getUTCDate() : now.getDate();
+    const yr = useUTC ? now.getUTCFullYear() : now.getFullYear();
+    return `${WEEKDAY_ABBR[wd]} ${MONTH_ABBR[mo]} ${da}, ${yr}`;
+  }
 }
 function tick(){
-  const now = new Date();
-  document.getElementById('localClock').textContent = formatLocalTime(now);
-  document.getElementById('localDate').textContent =
-    now.toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric', year:'numeric'});
-  const h = String(now.getUTCHours()).padStart(2,'0');
-  const m = String(now.getUTCMinutes()).padStart(2,'0');
-  const s = String(now.getUTCSeconds()).padStart(2,'0');
-  document.getElementById('utcClock').textContent = h+':'+m+':'+s+'Z';
-  document.getElementById('utcDate').textContent =
-    now.toLocaleDateString(undefined, {timeZone:'UTC', weekday:'short', month:'short', day:'numeric', year:'numeric'});
+  try{
+    const now = new Date();
+    document.getElementById('localClock').textContent = formatLocalTime(now);
+    document.getElementById('localDate').textContent = safeLocaleDate(now, false);
+    const h = String(now.getUTCHours()).padStart(2,'0');
+    const m = String(now.getUTCMinutes()).padStart(2,'0');
+    const s = String(now.getUTCSeconds()).padStart(2,'0');
+    document.getElementById('utcClock').textContent = h+':'+m+':'+s+'Z';
+    document.getElementById('utcDate').textContent = safeLocaleDate(now, true);
+  }catch(err){
+    console.error('Clock tick failed:', err);
+  }
 }
 setInterval(tick, 1000); tick();
 
@@ -863,6 +919,18 @@ document.getElementById('idModalOk').addEventListener('click', ()=>{
   idInterval = setInterval(idTick, 1000);
 });
 renderIdTimer();
+
+function applyIdTimerVisibility(){
+  const show = DATA.settings.showIdTimer !== false;
+  document.getElementById('timerBox').style.display = show ? '' : 'none';
+  if(!show){
+    if(idInterval){ clearInterval(idInterval); idInterval = null; }
+    idRemaining = ID_SECONDS;
+    document.getElementById('timerBox').classList.remove('running');
+    document.getElementById('idModal').classList.remove('show');
+    renderIdTimer();
+  }
+}
 
 /* ============================= MAIN TAB ============================= */
 function getNextEligibleIndex(list, startIdx){
@@ -1269,12 +1337,200 @@ function showStaleReport(thresholdDays){
 document.getElementById('reportStale30').addEventListener('click', ()=>showStaleReport(30));
 document.getElementById('reportStale90').addEventListener('click', ()=>showStaleReport(90));
 
+/* ---------- Save locations (File System Access API, Chromium-based browsers) ---------- */
+const FS_SUPPORTED = ('showDirectoryPicker' in window);
+
+function idbOpen(){
+  return new Promise((resolve, reject)=>{
+    const req = indexedDB.open('hamnet_fs', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('handles');
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbGet(key){
+  const db = await idbOpen();
+  return new Promise((resolve, reject)=>{
+    const r = db.transaction('handles').objectStore('handles').get(key);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+}
+async function idbSet(key, val){
+  const db = await idbOpen();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction('handles', 'readwrite');
+    tx.objectStore('handles').put(val, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbDel(key){
+  const db = await idbOpen();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction('handles', 'readwrite');
+    tx.objectStore('handles').delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ---------- Tauri (desktop app) support ----------
+   When running inside the Tauri app, real folder paths are available through its
+   dialog plugin and two small Rust commands (save_text_file / write_text_file). */
+function hamnetIsTauri(){
+  return !!(window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.dialog);
+}
+function getTauriDirs(){
+  try{ return JSON.parse(localStorage.getItem('hamnet_tauri_dirs') || '{}'); }catch(e){ return {}; }
+}
+function setTauriDir(kind, path){
+  const d = getTauriDirs();
+  if(path) d[kind] = path; else delete d[kind];
+  try{ localStorage.setItem('hamnet_tauri_dirs', JSON.stringify(d)); }catch(e){}
+}
+async function saveViaTauri(kind, filename, blob){
+  const T = window.__TAURI__;
+  try{
+    const text = await blob.text();
+    const dir = getTauriDirs()[kind];
+    if(dir){
+      const t = new Date();
+      const stamp = String(t.getHours()).padStart(2,'0') + String(t.getMinutes()).padStart(2,'0') + String(t.getSeconds()).padStart(2,'0');
+      const alt = filename.replace(/(\.[^.]+)$/, '-' + stamp + '$1');
+      const used = await T.core.invoke('save_text_file', {dir, filename, altFilename: alt, contents: text});
+      return {saved:true, folder:dir, filename:used};
+    }
+    const ext = (filename.split('.').pop() || 'txt').toLowerCase();
+    const path = await T.dialog.save({defaultPath: filename, filters:[{name: ext.toUpperCase() + ' file', extensions:[ext]}]});
+    if(!path) return {cancelled:true};
+    await T.core.invoke('write_text_file', {path, contents: text});
+    return {saved:true, path};
+  }catch(err){
+    console.error(err);
+    return {error: String(err)};
+  }
+}
+
+/* kind is 'backup' or 'export'. Saves into the chosen folder if one is set and
+   permitted; otherwise falls back to a normal browser download. */
+async function saveFileWithLocation(kind, filename, blob){
+  if(hamnetIsTauri()) return saveViaTauri(kind, filename, blob);
+  if(FS_SUPPORTED){
+    try{
+      const dir = await idbGet(kind + 'Dir');
+      if(dir){
+        let perm = await dir.queryPermission({mode:'readwrite'});
+        if(perm !== 'granted') perm = await dir.requestPermission({mode:'readwrite'});
+        if(perm === 'granted'){
+          let name = filename;
+          let exists = true;
+          try{ await dir.getFileHandle(name); }catch(e){ exists = false; }
+          if(exists){
+            const t = new Date();
+            const stamp = String(t.getHours()).padStart(2,'0') + String(t.getMinutes()).padStart(2,'0') + String(t.getSeconds()).padStart(2,'0');
+            name = filename.replace(/(\.[^.]+)$/, '-' + stamp + '$1');
+          }
+          const fh = await dir.getFileHandle(name, {create:true});
+          const w = await fh.createWritable();
+          await w.write(blob);
+          await w.close();
+          return {saved:true, folder:dir.name, filename:name};
+        }
+      }
+    }catch(err){
+      console.error('Saving to chosen folder failed, falling back to download.', err);
+    }
+  }
+  downloadBlob(blob, filename);
+  return {saved:false, filename};
+}
+
+function showSaveResult(label, result){
+  const flash = document.getElementById('backupFlash');
+  flash.classList.remove('bad');
+  if(result.cancelled){ flash.textContent = `${label} cancelled.`; return; }
+  if(result.error){ flash.textContent = `${label} failed: ${result.error}`; flash.classList.add('bad'); return; }
+  if(result.saved && result.path) flash.textContent = `${label} saved to ${result.path}.`;
+  else if(result.saved) flash.textContent = `${label} saved to "${result.folder}" as ${result.filename}.`;
+  else flash.textContent = `${label} downloaded.`;
+}
+
+async function renderFileLocations(){
+  const hint = document.getElementById('fsSupportHint');
+  const kinds = [['backup','backupDirName','chooseBackupDir','clearBackupDir'],
+                 ['export','exportDirName','chooseExportDir','clearExportDir']];
+  if(hamnetIsTauri()){
+    hint.textContent = "Choose where Backups and Roster exports are saved. If no folder is chosen, you'll be asked where to save each file. These folder choices apply to this computer (not to individual nets).";
+    const dirs = getTauriDirs();
+    kinds.forEach(([k,nameId,chooseId,clearId])=>{
+      document.getElementById(nameId).textContent = dirs[k] || 'Ask each time';
+      document.getElementById(chooseId).disabled = false;
+      document.getElementById(clearId).disabled = false;
+    });
+    return;
+  }
+  if(!FS_SUPPORTED){
+    hint.textContent = "Choosing a save folder needs a Chromium-based browser (Chrome, Edge, Chromium) opened directly, not inside another page. Here, files go to your browser's normal download location.";
+    kinds.forEach(([k,nameId,chooseId,clearId])=>{
+      document.getElementById(chooseId).disabled = true;
+      document.getElementById(clearId).disabled = true;
+    });
+    return;
+  }
+  for(const [kind,nameId] of kinds){
+    let label = 'Browser default';
+    try{
+      const dir = await idbGet(kind + 'Dir');
+      if(dir) label = dir.name;
+    }catch(e){}
+    document.getElementById(nameId).textContent = label;
+  }
+}
+[['backup','chooseBackupDir','clearBackupDir'],['export','chooseExportDir','clearExportDir']].forEach(([kind,chooseId,clearId])=>{
+  document.getElementById(chooseId).addEventListener('click', async ()=>{
+    if(hamnetIsTauri()){
+      try{
+        const picked = await window.__TAURI__.dialog.open({directory:true, multiple:false, title:'Choose a folder'});
+        if(picked){ setTauriDir(kind, picked); renderFileLocations(); }
+      }catch(err){ console.error(err); alert("Couldn't open the folder chooser: " + err); }
+      return;
+    }
+    try{
+      const dir = await window.showDirectoryPicker({mode:'readwrite'});
+      await idbSet(kind + 'Dir', dir);
+      renderFileLocations();
+    }catch(err){
+      if(err && err.name !== 'AbortError'){
+        console.error(err);
+        alert("Couldn't open the folder picker here. Try opening the app directly in Chrome/Chromium or Edge.");
+      }
+    }
+  });
+  document.getElementById(clearId).addEventListener('click', async ()=>{
+    if(hamnetIsTauri()){ setTauriDir(kind, null); renderFileLocations(); return; }
+    try{ await idbDel(kind + 'Dir'); }catch(e){}
+    renderFileLocations();
+  });
+});
+
 function csvEscape(val){
   val = (val === null || val === undefined) ? '' : String(val);
   if(/[",\r\n]/.test(val)) return '"' + val.replace(/"/g,'""') + '"';
   return val;
 }
-document.getElementById('exportRosterBtn').addEventListener('click', ()=>{
+document.getElementById('exportRosterBtn').addEventListener('click', async ()=>{
   const header = ['Callsign','Name','Spouse','City','State','URL','Birthday','Anniversary','Last Check-in','Inactive'];
   const rows = sortedRoster().map(r => [
     r.callsign||'', r.name||'', r.spouse||'', r.city||'', r.state||'',
@@ -1282,19 +1538,13 @@ document.getElementById('exportRosterBtn').addEventListener('click', ()=>{
   ]);
   const csv = [header, ...rows].map(row => row.map(csvEscape).join(',')).join('\r\n');
   const blob = new Blob([csv], {type:'text/csv'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
   const safeName = (DATA.settings.netName || 'roster').replace(/[^a-z0-9]+/gi,'-').toLowerCase().replace(/^-+|-+$/g,'');
-  a.href = url;
-  a.download = `${safeName || 'roster'}-${todayStr()}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const result = await saveFileWithLocation('export', `${safeName || 'roster'}-${todayStr()}.csv`, blob);
+  showSaveResult('Roster exported', result);
 });
 
 /* ---------- Backup / Restore ---------- */
-document.getElementById('backupBtn').addEventListener('click', ()=>{
+document.getElementById('backupBtn').addEventListener('click', async ()=>{
   const payload = {
     version: 1,
     exportedAt: todayStr(),
@@ -1304,18 +1554,9 @@ document.getElementById('backupBtn').addEventListener('click', ()=>{
     qtc: DATA.qtc
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
   const safeNetName = (DATA.settings.netName || 'Net Logger').replace(/[\/\\:*?"<>|]+/g, '-').trim();
-  a.download = `${safeNetName}-Backup-${todayStr()}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  const flash = document.getElementById('backupFlash');
-  flash.textContent = 'Backup downloaded.';
-  flash.classList.remove('bad');
+  const result = await saveFileWithLocation('backup', `${safeNetName}-Backup-${todayStr()}.json`, blob);
+  showSaveResult('Backup', result);
 });
 
 document.getElementById('restoreBtn').addEventListener('click', ()=>{
@@ -1357,6 +1598,7 @@ document.getElementById('restoreFileInput').addEventListener('change', (e)=>{
     renderHeader();
     renderCheckins();
     applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
+    applyIdTimerVisibility();
     hideReportNums();
     hideStaleReport();
     flash.textContent = `Restored ${DATA.roster.length} station(s).`;
@@ -1542,6 +1784,7 @@ document.getElementById('csvImportInput').addEventListener('change', (e)=>{
 
 /* ============================= SETTINGS TAB ============================= */
 function renderSettings(){
+  renderFileLocations();
   const sel = document.getElementById('setActiveNet');
   sel.innerHTML = Object.entries(STORE.nets)
     .map(([id,net]) => `<option value="${id}">${escapeHtml(net.settings.netName || '(unnamed net)')}</option>`)
@@ -1552,6 +1795,7 @@ function renderSettings(){
   document.getElementById('setPreamble').value = DATA.settings.preamble || '';
   document.getElementById('setTheme').value = DATA.settings.theme || 'default';
   document.getElementById('setTimeFormat').value = DATA.settings.timeFormat || '12';
+  document.getElementById('setShowIdTimer').checked = DATA.settings.showIdTimer !== false;
   renderRosterTable();
 }
 document.getElementById('setActiveNet').addEventListener('change', (e)=>{
@@ -1579,6 +1823,11 @@ document.getElementById('setTheme').addEventListener('change', ()=>{
   DATA.settings.theme = document.getElementById('setTheme').value;
   saveData();
   applyTheme();
+});
+document.getElementById('setShowIdTimer').addEventListener('change', (e)=>{
+  DATA.settings.showIdTimer = e.target.checked;
+  saveData();
+  applyIdTimerVisibility();
 });
 document.getElementById('setTimeFormat').addEventListener('change', ()=>{
   DATA.settings.timeFormat = document.getElementById('setTimeFormat').value;
@@ -1659,6 +1908,7 @@ applyTheme();
 renderHeader();
 renderCheckins();
 applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
+applyIdTimerVisibility();
 showTab('preamble');
 </script>
 </body>
