@@ -150,6 +150,7 @@
   }
   .checkin-item .call{font-family:var(--mono);color:var(--accent);font-weight:600;font-size:calc(16px * var(--checkins-scale));}
   .checkin-item .nm{display:block;color:var(--text-dim);font-size:calc(14px * var(--checkins-scale));margin-top:1px;}
+  .checkin-item .qtc-line{display:block;color:var(--text-dim);font-size:11px;margin-top:2px;letter-spacing:.3px;}
   .checkins-empty{color:var(--text-dim);font-size:12px;padding:4px 2px;}
   @media (max-width:760px){
     .content-wrap{flex-direction:column;}
@@ -319,6 +320,16 @@
   <section class="tabpanel panel" id="tab-main">
     <h2 class="tab-title">Roll Call</h2>
     <div id="mainContent"></div>
+    <div class="station-card" id="oosBox" style="margin-top:4px;">
+      <h3 style="font-size:14px;color:var(--accent);margin:0 0 14px;">Out of Sequence, Early, or Late</h3>
+      <div class="row">
+        <div class="field mono-field"><label>Callsign</label><input type="text" id="oosCallsign" class="callsign-input" autocomplete="off"></div>
+        <div class="field"><label>Name</label><input type="text" id="oosName" autocomplete="off"></div>
+        <div class="field" id="oosCityField"><label>City</label><input type="text" id="oosCity" autocomplete="off"></div>
+        <div class="field"><label>State</label><input type="text" id="oosState" autocomplete="off"></div>
+      </div>
+      <span class="flash" id="oosFlash"></span>
+    </div>
   </section>
 
   <!-- PREAMBLE TAB -->
@@ -354,8 +365,10 @@
     <div class="row" style="margin-top:16px;">
       <div class="field mono-field"><label>Callsign</label><input type="text" id="earlyCallsign" class="callsign-input" autocomplete="off"></div>
       <div class="field"><label>Name</label><input type="text" id="earlyName" autocomplete="off"></div>
-      <div class="field"><label>City</label><input type="text" id="earlyCity" autocomplete="off"></div>
+      <div class="field" id="earlyCityField"><label>City</label><input type="text" id="earlyCity" autocomplete="off"></div>
       <div class="field"><label>State</label><input type="text" id="earlyState" autocomplete="off"></div>
+      <div class="field" id="earlyQtcField" style="display:none;max-width:90px;"><label>QTC</label><input type="text" id="earlyQtc" autocomplete="off"></div>
+      <div class="field" id="earlyDestField" style="display:none;"><label>Destination</label><input type="text" id="earlyDestination" autocomplete="off"></div>
     </div>
     <span class="flash" id="earlyFlash"></span>
   </section>
@@ -389,6 +402,7 @@
       <div class="num-box"><div class="n" id="repQtc">0</div><div class="l">QTC</div></div>
       <div class="num-box" id="sessionsBox" style="display:none;"><div class="n" id="repSessions">0</div><div class="l">Net Sessions</div></div>
     </div>
+    <div id="netReportLine" style="display:none;margin-top:14px;font-family:var(--mono);font-size:14px;background:var(--panel-alt);border:1px solid var(--border);border-radius:6px;padding:12px 14px;word-break:break-word;"></div>
     <div id="staleReport" style="display:none;margin-top:18px;">
       <h3 style="font-size:14px;color:var(--accent);margin:0 0 10px;" id="staleReportTitle"></h3>
       <div id="staleReportBody"></div>
@@ -425,6 +439,18 @@
           <button class="secondary" id="deleteNetBtn" style="width:100%;color:var(--bad);border-color:var(--bad);">Delete This Net</button>
         </div>
       </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Net Type</h3>
+      <div class="field" style="max-width:300px;">
+        <label>This net is a</label>
+        <select id="setNetType">
+          <option value="rollcall">Roll Call Net</option>
+          <option value="traffic">Traffic Net</option>
+        </select>
+      </div>
+      <p class="hint">Roll Call Net is the standard roster roll call (Main, Early Check-ins, End of the List, Birthdays &amp; Anniversaries, Traffic). Traffic Net simplifies this: Birthdays &amp; Anniversaries, Traffic, and End of the List are hidden, and Early Check-ins becomes the main screen with Callsign, Name, State, QTC, and Destination fields.</p>
     </div>
 
     <div class="settings-section">
@@ -557,7 +583,8 @@ function defaultNetData(){
       theme:'default',
       timeFormat:'12',
       checkinsPaneWidth:220,
-      showIdTimer:true
+      showIdTimer:true,
+      netType:'rollcall'
     },
     roster:[],
     qni:[],
@@ -621,6 +648,7 @@ function switchNet(id){
   renderCheckins();
   applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
   applyIdTimerVisibility();
+  applyNetTypeUI();
   showTab(currentTab);
 }
 function createNet(){
@@ -646,6 +674,7 @@ function deleteNet(id){
   renderCheckins();
   applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
   applyIdTimerVisibility();
+  applyNetTypeUI();
   renderSettings();
 }
 
@@ -676,6 +705,17 @@ function findRosterByCall(call){
   return DATA.roster.find(r => r.callsign.toUpperCase().trim() === target);
 }
 
+/* Mirrors resolveCallsignInput, but matches by Name instead, for use when the
+   Callsign field is left blank. Returns the same shape of result. */
+function resolveNameInput(input){
+  const target = (input||'').trim().toLowerCase();
+  if(!target) return {call:null, status:'empty'};
+  const candidates = DATA.roster.filter(r => (r.name||'').trim().toLowerCase() === target);
+  if(candidates.length === 1) return {call:candidates[0].callsign, status:'name'};
+  if(candidates.length > 1) return {call:null, status:'ambiguous', candidates};
+  return {call:null, status:'notfound'};
+}
+
 /* Accepts either a full callsign or just its suffix (e.g. "EI" for AE5EI).
    Returns {call, status} where status is:
      'exact'     - input matched a full callsign
@@ -698,19 +738,23 @@ function insertRosterEntry(entry){
   saveData();
 }
 
-function addQni(callsign, notes){
+function addQni(callsign, notes, destination, qtc){
   const d = todayStr();
   let existing = DATA.qni.find(q => q.callsign.toUpperCase()===callsign.toUpperCase() && q.date===d);
-  if(existing){ existing.notes = notes || existing.notes; }
-  else DATA.qni.push({callsign:callsign.toUpperCase(), date:d, notes: notes||''});
+  if(existing){
+    existing.notes = notes || existing.notes;
+    if(destination) existing.destination = destination;
+    if(qtc) existing.qtc = (existing.qtc || 0) + qtc;
+  }
+  else DATA.qni.push({callsign:callsign.toUpperCase(), date:d, notes: notes||'', destination: destination||'', qtc: qtc||0});
 }
 
-function markCheckedIn(call, notes){
+function markCheckedIn(call, notes, destination, qtc){
   const r = findRosterByCall(call);
   if(!r) return false;
   r.lastCheckin = todayStr();
   r.inactive = false;
-  addQni(r.callsign, notes);
+  addQni(r.callsign, notes, destination, qtc);
   saveData();
   renderCheckins();
   return true;
@@ -725,9 +769,18 @@ function renderCheckins(){
     list.innerHTML = '<div class="checkins-empty">No check-ins yet today.</div>';
     return;
   }
+  const isTraffic = DATA.settings.netType === 'traffic';
   list.innerHTML = todays.map(q=>{
     const r = findRosterByCall(q.callsign);
-    return `<div class="checkin-item"><span class="call">${escapeHtml(q.callsign)}</span><span class="nm">${escapeHtml(r && r.name ? r.name : '')}</span></div>`;
+    let qtcLine = '';
+    if(isTraffic){
+      let text = q.qtc ? ('QTC - ' + q.qtc) : 'QRU';
+      if(q.destination) text += ' ' + q.destination;
+      qtcLine = `<span class="qtc-line">${escapeHtml(text)}</span>`;
+    }
+    let nameText = (r && r.name) ? r.name : '';
+    if(isTraffic && r && r.state) nameText += (nameText ? ' - ' : '') + r.state;
+    return `<div class="checkin-item"><span class="call">${escapeHtml(q.callsign)}</span><span class="nm">${escapeHtml(nameText)}</span>${qtcLine}</div>`;
   }).join('');
   list.scrollTop = list.scrollHeight;
 }
@@ -787,6 +840,29 @@ function addQtc(delta){
 
 /* ============================= TAB SWITCHING ============================= */
 let currentTab = 'main';
+const ROLLCALL_ONLY_TABS = ['main', 'bday', 'traffic', 'endlist'];
+function applyNetTypeUI(){
+  const isTraffic = DATA.settings.netType === 'traffic';
+  ROLLCALL_ONLY_TABS.forEach(t=>{
+    const btn = document.querySelector(`#tabNav button[data-tab="${t}"]`);
+    if(btn) btn.style.display = isTraffic ? 'none' : '';
+  });
+  const earlyBtn = document.querySelector('#tabNav button[data-tab="early"]');
+  if(earlyBtn) earlyBtn.lastChild.textContent = isTraffic ? 'Main' : 'Early Check-ins';
+  document.getElementById('tab-early').querySelector('.tab-title').textContent = isTraffic ? 'Main' : 'Early Check-ins';
+  const cityField = document.getElementById('earlyCityField');
+  const qtcField = document.getElementById('earlyQtcField');
+  const destField = document.getElementById('earlyDestField');
+  if(cityField) cityField.style.display = isTraffic ? 'none' : '';
+  if(qtcField) qtcField.style.display = isTraffic ? '' : 'none';
+  if(destField) destField.style.display = isTraffic ? '' : 'none';
+  const oosBox = document.getElementById('oosBox');
+  if(oosBox) oosBox.style.display = isTraffic ? 'none' : '';
+  if(isTraffic && ROLLCALL_ONLY_TABS.includes(currentTab)){
+    showTab('preamble');
+  }
+  renderCheckins();
+}
 function showTab(tab){
   currentTab = tab;
   document.querySelectorAll('.tabpanel').forEach(p=>p.style.display='none');
@@ -1161,27 +1237,57 @@ function makeCheckinForm(prefix, flashId){
       state: document.getElementById(prefix+'State')
     };
   }
+  function isTrafficMain(){
+    return prefix === 'early' && DATA.settings.netType === 'traffic';
+  }
   function clearFields(){
     const f = fields();
     f.callsign.value=''; f.name.value=''; f.city.value=''; f.state.value='';
+    const qtcEl = document.getElementById('earlyQtc');
+    const destEl = document.getElementById('earlyDestination');
+    if(qtcEl) qtcEl.value = '';
+    if(destEl) destEl.value = '';
     f.callsign.focus();
   }
   function submit(){
     const f = fields();
-    const callRaw = f.callsign.value.trim();
-    if(!callRaw) return;
     const flash = document.getElementById(flashId);
-    const resolved = resolveCallsignInput(callRaw);
+    let callRaw = f.callsign.value.trim();
+    let resolved;
+    if(!callRaw && f.name && f.name.value.trim()){
+      resolved = resolveNameInput(f.name.value.trim());
+      if(resolved.status === 'ambiguous'){
+        flash.textContent = `"${f.name.value.trim()}" matches ${resolved.candidates.map(c=>c.callsign).join(', ')} — type the callsign instead.`;
+        flash.classList.add('bad');
+        return;
+      }
+      if(resolved.status === 'notfound'){
+        flash.textContent = `No roster match for "${f.name.value.trim()}" — enter a callsign.`;
+        flash.classList.add('bad');
+        return;
+      }
+      callRaw = resolved.call;
+    }
+    if(!callRaw) return;
+    resolved = resolveCallsignInput(callRaw);
     if(resolved.status === 'ambiguous'){
       flash.textContent = `"${callRaw.toUpperCase()}" matches ${resolved.candidates.map(c=>c.callsign).join(', ')} — type the full callsign.`;
       flash.classList.add('bad');
       return;
     }
     const call = resolved.call || callRaw;
+    let qtcAmount = 0, destination = '';
+    if(isTrafficMain()){
+      const qtcEl = document.getElementById('earlyQtc');
+      const destEl = document.getElementById('earlyDestination');
+      qtcAmount = parseInt(qtcEl && qtcEl.value, 10) || 0;
+      destination = destEl ? destEl.value.trim() : '';
+    }
     const existing = findRosterByCall(call);
     if(existing){
-      markCheckedIn(call, '');
-      flash.textContent = `${call.toUpperCase()} checked in.`;
+      markCheckedIn(call, '', destination, qtcAmount);
+      if(qtcAmount) addQtc(qtcAmount);
+      flash.textContent = `${call.toUpperCase()} checked in.` + (qtcAmount ? ` QTC ${qtcAmount} logged.` : '');
       flash.classList.remove('bad');
       clearFields();
     }else{
@@ -1189,7 +1295,9 @@ function makeCheckinForm(prefix, flashId){
         callsign: call.toUpperCase(),
         name: f.name.value.trim(),
         city: f.city.value.trim(),
-        state: f.state.value.trim()
+        state: f.state.value.trim(),
+        qtc: qtcAmount,
+        destination: destination
       };
       pendingClearFields = clearFields;
       pendingFlashEl = flash;
@@ -1203,9 +1311,18 @@ function makeCheckinForm(prefix, flashId){
       if(e.key === 'Enter'){ e.preventDefault(); submit(); }
     });
   });
+  if(prefix === 'early'){
+    ['earlyQtc','earlyDestination'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.addEventListener('keydown', e=>{
+        if(e.key === 'Enter'){ e.preventDefault(); submit(); }
+      });
+    });
+  }
 }
 makeCheckinForm('early', 'earlyFlash');
 makeCheckinForm('eol', 'eolFlash');
+makeCheckinForm('oos', 'oosFlash');
 
 document.getElementById('addRosterYes').addEventListener('click', ()=>{
   if(pendingNewStation){
@@ -1215,13 +1332,15 @@ document.getElementById('addRosterYes').addEventListener('click', ()=>{
       spouse:'', city: pendingNewStation.city, state: pendingNewStation.state,
       url:'', birthday:'', anniversary:'', lastCheckin: todayStr()
     });
-    addQni(pendingNewStation.callsign, '');
+    addQni(pendingNewStation.callsign, '', pendingNewStation.destination || '', pendingNewStation.qtc || 0);
+    if(pendingNewStation.qtc) addQtc(pendingNewStation.qtc);
     saveData();
     renderCheckins();
   }
   document.getElementById('addRosterModal').classList.remove('show');
   if(pendingFlashEl){
-    pendingFlashEl.textContent = `${pendingNewStation.callsign} added and checked in.`;
+    pendingFlashEl.textContent = `${pendingNewStation.callsign} added and checked in.` +
+      (pendingNewStation.qtc ? ` QTC ${pendingNewStation.qtc} logged.` : '');
     pendingFlashEl.classList.remove('bad');
   }
   pendingNewStation = null;
@@ -1234,15 +1353,43 @@ document.getElementById('addRosterNo').addEventListener('click', ()=>{
 });
 
 /* ============================= REPORTS TAB ============================= */
+function hideNetReportLine(){
+  document.getElementById('netReportLine').style.display = 'none';
+}
+function buildNetReportLine(){
+  const d = todayStr();
+  const todaysQni = DATA.qni.filter(q => q.date === d);
+  const checkinCount = todaysQni.length;
+  const qtcEntry = DATA.qtc.find(q => q.date === d);
+  const qtcTotal = qtcEntry ? qtcEntry.count : 0;
+  const now = new Date();
+  const monthDay = `${MONTH_ABBR[now.getUTCMonth()]} ${now.getUTCDate()}`;
+  let calls = todaysQni.map(q => q.callsign.toUpperCase());
+  const ncsCall = (DATA.settings.ncs || '').toUpperCase().trim();
+  if(ncsCall){
+    calls = calls.filter(c => c !== ncsCall);
+    calls.push(ncsCall + '/NCS');
+  }
+  const netName = DATA.settings.netName || 'Net';
+  return `${netName} net report for ${monthDay} utc ${checkinCount} ${qtcTotal} ${calls.join(' ')}`;
+}
 document.getElementById('reportToday').addEventListener('click', ()=>{
   hideStaleReport();
   const d = todayStr();
   const checkins = DATA.roster.filter(r=>r.lastCheckin===d).length;
   const qtc = DATA.qtc.find(q=>q.date===d);
   showReport(checkins, qtc ? qtc.count : 0);
+  const lineEl = document.getElementById('netReportLine');
+  if(DATA.settings.netType === 'traffic'){
+    lineEl.textContent = buildNetReportLine();
+    lineEl.style.display = 'block';
+  } else {
+    hideNetReportLine();
+  }
 });
 document.getElementById('reportMonth').addEventListener('click', ()=>{
   hideStaleReport();
+  hideNetReportLine();
   const now = new Date();
   const y = now.getFullYear(), m = now.getMonth();
   const inMonth = (dateStr) => {
@@ -1289,6 +1436,7 @@ function removeRosterEntry(callsign){
 
 function showStaleReport(thresholdDays){
   hideReportNums();
+  hideNetReportLine();
   const stale = DATA.roster
     .map(r => ({r, days: daysSinceCheckin(r.lastCheckin)}))
     .filter(x => x.days > thresholdDays)
@@ -1599,8 +1747,10 @@ document.getElementById('restoreFileInput').addEventListener('change', (e)=>{
     renderCheckins();
     applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
     applyIdTimerVisibility();
+    applyNetTypeUI();
     hideReportNums();
     hideStaleReport();
+    hideNetReportLine();
     flash.textContent = `Restored ${DATA.roster.length} station(s).`;
     flash.classList.remove('bad');
     e.target.value = '';
@@ -1796,6 +1946,7 @@ function renderSettings(){
   document.getElementById('setTheme').value = DATA.settings.theme || 'default';
   document.getElementById('setTimeFormat').value = DATA.settings.timeFormat || '12';
   document.getElementById('setShowIdTimer').checked = DATA.settings.showIdTimer !== false;
+  document.getElementById('setNetType').value = DATA.settings.netType || 'rollcall';
   renderRosterTable();
 }
 document.getElementById('setActiveNet').addEventListener('change', (e)=>{
@@ -1828,6 +1979,11 @@ document.getElementById('setShowIdTimer').addEventListener('change', (e)=>{
   DATA.settings.showIdTimer = e.target.checked;
   saveData();
   applyIdTimerVisibility();
+});
+document.getElementById('setNetType').addEventListener('change', (e)=>{
+  DATA.settings.netType = e.target.value;
+  saveData();
+  applyNetTypeUI();
 });
 document.getElementById('setTimeFormat').addEventListener('change', ()=>{
   DATA.settings.timeFormat = document.getElementById('setTimeFormat').value;
@@ -1909,6 +2065,7 @@ renderHeader();
 renderCheckins();
 applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
 applyIdTimerVisibility();
+applyNetTypeUI();
 showTab('preamble');
 </script>
 </body>
