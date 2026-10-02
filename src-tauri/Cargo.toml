@@ -1,10 +1,10 @@
 [package]
-name = "app"
-version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+name = "N8VCL-Net-Logger"
+version = "1.29.0"
+description = "Net roster and check-in logger for ham radio net control"
+authors = ["N8VCL"]
 license = ""
-repository = ""
+repository = "https://github.com/scottws70/Net-Roster-Logger"
 edition = "2024"
 rust-version = "1.90"
 
