@@ -10,7 +10,7 @@
 
 # N8VCL Net Roster Logger — User Manual
 
-Sep 28, 2026 · @Scott
+Updated Oct 3, 2026 for v1.29.1 · @Scott
 
 ## Overview
 
@@ -19,6 +19,8 @@ Net Logger is a self-contained app for a ham radio net control station to run a 
 It runs in a single window, with no internet connection required. Roster, check-in history, and settings are all stored locally.
 
 The app can run more than one net, each with its own Roster and history and other settings. (see [Settings](#settings) → Net Profile).
+
+Each net can be set up as a **Roll Call Net** (the default, described throughout this manual) or a **Traffic Net**, which simplifies the screens for formal traffic handling. See [Traffic Net Mode](#traffic-net-mode).
 
 ## Quick Start:
 
@@ -66,6 +68,7 @@ Fill in a row, then press **Enter** or **Tab** out of it to open a new blank row
 For stations that check in before or outside the normal roll call. Fields: Callsign, Name, City, State.
 
 - **Callsign** accepts the full callsign (`W1AW`) or just the suffix (`AW`), as long as that suffix matches exactly one station on the Roster. If it matches more than one, you'll be asked to type the full callsign instead.
+- **Name lookup:** if you don't have the callsign handy, leave Callsign blank, type the station's **Name**, and press **Enter**. If exactly one station on the Roster has that name, it's checked in. If several do, you'll see their callsigns and be asked to type the callsign instead. The name must match the whole Name field (capitalization doesn't matter) — `Mark` finds "Mark", but not "Mark Smith".
 - A **known** callsign is checked in immediately.
 - An **unknown** callsign prompts “Add to Roster?” — choosing Yes adds it using the Name/City/State you typed and checks it in; No just clears the fields. If it's a new station, and they want to be added to the roster, click "No" first, then re-enter the call, get the name, city, state, press enter, and answer Yes to "Add to Roster?"
 
@@ -89,6 +92,12 @@ A station already checked in today is skipped automatically as you move forward.
 
 When you reach the end of the Roster, Main switches automatically to **End of the List**.
 
+### Out of Sequence, Early, or Late
+
+Below the station card is a small check-in box for stations that break in during roll call — a "CONTACT," a late arrival, or "check in my wife too" — so you can log them without leaving the Main tab. It works exactly like [Early Check-ins](#early-check-ins): the same Callsign / Name / City / State fields, suffix matching, name lookup, and “Add to Roster?” prompt.
+
+Anyone checked in this way is skipped automatically when roll call reaches them. While your cursor is in one of these fields, Space and the arrow keys type normally instead of moving the roll call; click anywhere outside the box to go back to using the shortcuts.
+
 ## End of the List Tab
 
 Works exactly like [Early Check-ins](#early-check-ins) — same four fields, same suffix matching, same “Add to Roster?” prompt — for catching late, missed, or new stations.
@@ -103,8 +112,8 @@ Drag the panel's left edge to resize it; the text scales up or down with the wid
 
 ## Reports Tab
 
-- **Today** — how many stations checked in today, and today's QTC count.
-- **This Month** — the same two figures totaled for the current calendar month, plus **Net Sessions**: the number of distinct days this month with at least one check-in — a stand-in for how many times the net actually ran.
+- **Today** — how many stations checked in today, and today's QTC count. On a [Traffic Net](#traffic-net-mode), it also shows a one-line net report ready to send.
+- **This Month** — total check-ins and QTC for the current calendar month, plus **Net Sessions**: the number of distinct days this month with at least one check-in — a stand-in for how many times the net actually ran. Check-ins counts every check-in, so a station that checked in on 4 nets this month counts 4 times.
 - **Stale Check-ins (>30 / >90 days)** — lists every station whose Last Check-in is older than that many days (or who has never checked in), sorted most-overdue first. Each row has a **✕** to remove that one station from the Roster, or use **Remove All Listed** to clear the whole batch at once; both ask for confirmation first.
 - **Export Roster CSV** — downloads the current Roster in the same format [Import Roster CSV](#settings) accepts, so it round-trips cleanly.
 - **Backup All Data** / **Restore All Data** — see [Backup & Restore and Data Safety](#backup-restore-and-data-safety).
@@ -114,6 +123,10 @@ Drag the panel's left edge to resize it; the text scales up or down with the wid
 ### Net Profile
 
 Switch, create, or delete nets. Each net has its own Roster, check-in history, and settings — useful for running more than one net (e.g. a daily net and a weekly one, or a Morning net and Evening net, etc) from the same app. **+ New Net** creates a blank one; **Delete This Net** removes it and its data permanently (you can't delete your only net). The same switcher is also available as the Net Name dropdown in the header.
+
+### Net Type
+
+**Roll Call Net** (the default) or **Traffic Net**. Set separately for each net. See [Traffic Net Mode](#traffic-net-mode) for what changes.
 
 ### Net Info
 
@@ -142,6 +155,26 @@ Each station is shown as a two-line card: Callsign, Name, Spouse, City, State on
 
 **Import Roster CSV** adds or updates stations in bulk. Recognized columns, in any order, case-insensitive: Callsign, Name, Spouse, City, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No). A row matching an existing callsign updates it; other rows are added as new stations. Birthday and Anniversary accept the same flexible formats described under [Birthdays & Anniversaries](#birthdays-anniversaries).
 
+## Traffic Net Mode
+
+For nets whose purpose is passing formal traffic rather than calling a roster. Turn it on in Settings → Net Type → **Traffic Net**; it applies only to that net, so a Roll Call net and a Traffic net can live side by side.
+
+**What changes:**
+
+- **Tabs:** only **Preamble**, **Main**, **Reports**, and **Settings** are shown. Birthdays & Anniversaries, Traffic, End of the List, and the roll-call Main tab are hidden.
+- **Main** is the Early Check-ins screen, renamed, with the fields **Callsign**, **Name**, **State**, **QTC**, and **Destination** (City is hidden). Suffix matching, name lookup, and the “Add to Roster?” prompt work the same as in [Early Check-ins](#early-check-ins).
+  - **QTC** is the number of messages the station is holding; leave it blank if they have none. It's added to the day's QTC count.
+  - **Destination** is where their traffic is going.
+  - Press **Enter** from any field to check the station in.
+- **Check-ins Today panel** shows each station as Callsign, then Name - State, then either `QTC - 2 Columbus` (holding traffic, with destination) or `QRU` (nothing to pass).
+- **Reports → Today** adds a one-line net report you can copy and send, in the form:
+
+  `<Net Name> net report for <Mon D> utc <check-ins> <QTC> <callsigns…> <NCS>/NCS`
+
+  for example `BTN net report for Oct 3 utc 12 4 W1AW K8XYZ … N8VCL/NCS`. The date is in UTC, and the NCS callsign (from Net Info) is always listed last with `/NCS`.
+
+Switching a net back to Roll Call Net restores all the tabs; nothing is lost either way.
+
 ## Backup & Restore and Data Safety
 
 Everything — Roster, check-in history, settings — is stored locally. There's no cloud connection or separate server copy. Your data is YOURS.&#32;
@@ -163,5 +196,9 @@ I recommend first setting your net up in the Settings tab, and once that's done 
 **A station I expect to see on Main isn't showing up.** Check whether it's marked Inactive in Settings → Roster — inactive stations are hidden from roll call until they check in again from any tab.  Or perhaps they checked in early.
 
 **“Matches multiple callsigns” message in Early Check-ins or End of the List.** The suffix you typed matches more than one station. Type the full callsign instead.
+
+**“No roster match” when checking in by name.** Name lookup needs the whole Name exactly as it's entered on the Roster (capitalization aside). Enter the callsign instead, or check the spelling in Settings → Roster.
+
+**Some tabs are missing.** The net is probably set to Traffic Net — see Settings → Net Type and [Traffic Net Mode](#traffic-net-mode).
 
 **A CSV import didn't pick up a Birthday or Anniversary correctly.** Check the format against [Birthdays & Anniversaries](#birthdays-anniversaries) — a bare year with no day (`1984`) is stored as year-only on purpose, so it won't show as a match.
