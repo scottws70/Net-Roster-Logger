@@ -1396,9 +1396,11 @@ document.getElementById('reportMonth').addEventListener('click', ()=>{
     const d = new Date(dateStr+'T00:00:00');
     return d.getFullYear()===y && d.getMonth()===m;
   };
-  const checkins = DATA.roster.filter(r => r.lastCheckin && inMonth(r.lastCheckin)).length;
+  // Count every check-in this month (one per station per day), not just each station's latest
+  const monthQni = DATA.qni.filter(q => inMonth(q.date));
+  const checkins = monthQni.length;
   const qtcTotal = DATA.qtc.filter(q => inMonth(q.date)).reduce((sum,q)=>sum+q.count,0);
-  const sessionDates = new Set(DATA.qni.filter(q => inMonth(q.date)).map(q=>q.date));
+  const sessionDates = new Set(monthQni.map(q=>q.date));
   showReport(checkins, qtcTotal, sessionDates.size);
 });
 function showReport(checkins, qtc, sessions){
