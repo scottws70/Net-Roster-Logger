@@ -10,7 +10,7 @@
 
 # N8VCL Net Roster Logger — User Manual
 
-Updated Oct 3, 2026 for v1.29.1 · @Scott
+Updated Oct 16, 2026 for v1.30.0 · @Scott
 
 ## Overview
 
@@ -113,9 +113,10 @@ Drag the panel's left edge to resize it; the text scales up or down with the wid
 ## Reports Tab
 
 - **Today** — how many stations checked in today, and today's QTC count. On a [Traffic Net](#traffic-net-mode), it also shows a one-line net report ready to send.
+- **Net Report** — one row per net session for a chosen month: Date, Day, NCS, Check-ins, Traffic, Time (QTR), the stations that checked in from each area/region, and the traffic To and From each Area, with a totals row at the bottom. Pick a **Month**, and use **Days** to show only one day of the week (e.g. Fridays). **Export CSV** saves the report, ready to open in Excel, LibreOffice, or Zoho. Area/region columns appear on a [Traffic Net](#traffic-net-mode) with Traffic Groups set up.
 - **This Month** — total check-ins and QTC for the current calendar month, plus **Net Sessions**: the number of distinct days this month with at least one check-in — a stand-in for how many times the net actually ran. Check-ins counts every check-in, so a station that checked in on 4 nets this month counts 4 times.
 - **Stale Check-ins (>30 / >90 days)** — lists every station whose Last Check-in is older than that many days (or who has never checked in), sorted most-overdue first. Each row has a **✕** to remove that one station from the Roster, or use **Remove All Listed** to clear the whole batch at once; both ask for confirmation first.
-- **Export Roster CSV** — downloads the current Roster in the same format [Import Roster CSV](#settings) accepts, so it round-trips cleanly.
+- **Export Roster CSV** — downloads the current Roster (including Area, Region, Phone, Email, Street, and ZIP) in the same format [Import Roster CSV](#settings) accepts, so it round-trips cleanly.
 - **Backup All Data** / **Restore All Data** — see [Backup & Restore and Data Safety](#backup-restore-and-data-safety).
 
 ## Settings Tab
@@ -134,7 +135,7 @@ Net Name and NCS Callsign, shown in the header.
 
 ### Display
 
-- **Color Theme** — Default (dark), High Visibility (black and yellow, for bright rooms or low-vision readability), or Light.
+- **Color Theme** — Default (dark), High Visibility (black and yellow, for bright rooms or low-vision readability), Light, Blue, or Terminal (green text on black, in a monospace font, like an old green-screen terminal).
 - **Local Time Format** — 12- or 24-hour. UTC is always 24-hour.
 - **Show the 10-minute ID timer** — uncheck to hide the ID Timer box and turn off its reminder and beep entirely.
 
@@ -153,7 +154,9 @@ The text shown on the [Preamble](#preamble) tab.
 
 Each station is shown as a two-line card: Callsign, Name, Spouse, City, State on the first line; Birthday, Anniversary, Last Check-in, QRZ URL, and an Inactive checkbox on the second. **+ Add Station** adds a blank one. Callsign fields force uppercase as you type.
 
-**Import Roster CSV** adds or updates stations in bulk. Recognized columns, in any order, case-insensitive: Callsign, Name, Spouse, City, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No). A row matching an existing callsign updates it; other rows are added as new stations. Birthday and Anniversary accept the same flexible formats described under [Birthdays & Anniversaries](#birthdays-anniversaries).
+A third line holds Area, Region, Phone, Email, Street, and ZIP. Area and Region are what a [Traffic Net](#traffic-net-mode) uses to place each station in its group (e.g. Area `Eastern`, or Region `5`).
+
+**Import Roster CSV** adds or updates stations in bulk. Recognized columns, in any order, case-insensitive: Callsign (or Call Sign), Name, Spouse, City, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No), Area, Region, Phone, Email, Street (or Address), ZIP. A roster with separate **First** and **Last** name columns is combined into Name. Spreadsheet leftovers are cleaned up on the way in: a Region of `5.0` becomes `5`, and a ZIP that lost its leading zero (`6484`) gets it back (`06484`). A row matching an existing callsign updates it; other rows are added as new stations. Birthday and Anniversary accept the same flexible formats described under [Birthdays & Anniversaries](#birthdays-anniversaries).
 
 ## Traffic Net Mode
 
@@ -162,18 +165,56 @@ For nets whose purpose is passing formal traffic rather than calling a roster. T
 **What changes:**
 
 - **Tabs:** only **Preamble**, **Main**, **Reports**, and **Settings** are shown. Birthdays & Anniversaries, Traffic, End of the List, and the roll-call Main tab are hidden.
-- **Main** is the Early Check-ins screen, renamed, with the fields **Callsign**, **Name**, **State**, **QTC**, and **Destination** (City is hidden). Suffix matching, name lookup, and the “Add to Roster?” prompt work the same as in [Early Check-ins](#early-check-ins).
-  - **QTC** is the number of messages the station is holding; leave it blank if they have none. It's added to the day's QTC count.
-  - **Destination** is where their traffic is going.
-  - Press **Enter** from any field to check the station in.
-- **Check-ins Today panel** shows each station as Callsign, then Name - State, then either `QTC - 2 Columbus` (holding traffic, with destination) or `QRU` (nothing to pass).
+- **Main** is the Early Check-ins screen, renamed, with the fields **Callsign**, **Name**, and **State** (City is hidden), plus the traffic fields described below. Suffix matching, name lookup, and the “Add to Roster?” prompt work the same as in [Early Check-ins](#early-check-ins). Press **Enter** from any field to check the station in.
 - **Reports → Today** adds a one-line net report you can copy and send, in the form:
 
   `<Net Name> net report for <Mon D> utc <check-ins> <QTC> <callsigns…> <NCS>/NCS`
 
-  for example `BTN net report for Oct 3 utc 12 4 W1AW K8XYZ … N8VCL/NCS`. The date is in UTC, and the NCS callsign (from Net Info) is always listed last with `/NCS`.
+  for example `BTN net report for Oct 3 utc 12 4 W1AW K8XYZ … N8VCL/NCS`. The date is in UTC, and the NCS callsign is always listed last with `/NCS` — the session's NCS if one was entered (see below), otherwise the one from Net Info.
 
 Switching a net back to Roll Call Net restores all the tabs; nothing is lost either way.
+
+### Net Session
+
+At the top of Main is the **Net Session** box for today's net:
+
+- **Start Net** and **Secure Net** stamp the current time into **Time Started** and **Time Secured**. Either time can also be typed or corrected by hand.
+- **NCS** is filled in from Net Info; change it if someone else is running tonight's net.
+- **QNI** (check-ins), **QTC** (messages listed), and **QTR** (how long the net ran, Secured minus Started) update as you go.
+
+These carry into the [Net Report](#reports-tab), one row per session.
+
+### Traffic Groups
+
+Settings → **Traffic Groups** is the list of areas and regions this net sorts stations into and logs traffic to — for an NTS Area net, something like EAN, R5, R9, R10, WAN. Each group has:
+
+- **Label** — the short name shown on screen and in reports (`EAN`, `R5`).
+- **Type** — **Area** or **Region**.
+- **Matches roster** — the Area or Region value on the Roster that puts a station in this group (`Eastern`, `5`).
+
+A station's **Region** is checked first, then its **Area** — so a Region 8 station whose Area is Eastern lands in EAN when there's no R8 group. Capitalization and extras like "Area" or "Region" don't matter (`EASTERN`, `Eastern Area`, and `Eastern` all match). Use ▲ ▼ to set the order the groups appear in, and **✕** to remove one.
+
+**Use NTS Central Area preset** fills in EAN (Area: Eastern), R5, R9, R10 (Regions 5, 9, 10), and WAN (Area: Western) in one click.
+
+With **no** groups set up, Main keeps the simple single **QTC** and **Destination** fields, and the panel shows `QTC - 2 Columbus` or `QRU`.
+
+### Checking In With Traffic
+
+With Traffic Groups set up, the Main check-in form has:
+
+- **Group** — filled in automatically from the Roster when you leave the Callsign field; change it if needed. A new station added with “Add to Roster?” keeps the group you picked as its Area or Region.
+- **Traffic listed, by destination** — one box per group. Enter how many messages the station has for each place, or leave them blank for QRU. The total is added to the day's QTC.
+
+The **Check-ins Today** panel shows each station as Callsign, then Name - State · Group, then `QTC - R9 2, WAN 1` (a ✓ marks traffic that's been sent) or `QRU`.
+
+### Traffic Board
+
+Below the check-in form, the **Traffic Board** lists today's check-ins grouped by area/region, with a column for each destination:
+
+- Change a station's **Group** from its dropdown.
+- Type in or correct the number of messages listed **To** each place; QTC updates to match.
+- Tick **Sent** once that traffic has been passed. (QTC counts traffic *listed*, so Sent doesn't change it.)
+- The **Totals** row shows how many messages are listed to each place, and how many of them have been sent.
 
 ## Backup & Restore and Data Safety
 
@@ -198,6 +239,8 @@ I recommend first setting your net up in the Settings tab, and once that's done 
 **“Matches multiple callsigns” message in Early Check-ins or End of the List.** The suffix you typed matches more than one station. Type the full callsign instead.
 
 **“No roster match” when checking in by name.** Name lookup needs the whole Name exactly as it's entered on the Roster (capitalization aside). Enter the callsign instead, or check the spelling in Settings → Roster.
+
+**A station shows up as Unassigned on the Traffic Board.** Its Roster Area/Region doesn't match any Traffic Group. Fill in its Area or Region in Settings → Roster, or check the group's "Matches roster" value.
 
 **Some tabs are missing.** The net is probably set to Traffic Net — see Settings → Net Type and [Traffic Net Mode](#traffic-net-mode).
 
