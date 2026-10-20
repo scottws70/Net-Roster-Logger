@@ -113,7 +113,7 @@ Drag the panel's left edge to resize it; the text scales up or down with the wid
 ## Reports Tab
 
 - **Today** — how many stations checked in today, and today's QTC count. On a [Traffic Net](#traffic-net-mode), it also shows a one-line net report ready to send.
-- **Net Report** — one row per net session for a chosen month: Date, Day, NCS, Check-ins, Traffic, Time (QTR), the stations that checked in from each area/region, and the traffic To and From each Area, with a totals row at the bottom. Pick a **Month**, and use **Days** to show only one day of the week (e.g. Fridays). **Export CSV** saves the report, ready to open in Excel, LibreOffice, or Zoho. Area/region columns appear on a [Traffic Net](#traffic-net-mode) with Traffic Groups set up.
+- **Net Report** — one row per net session for a chosen month: Date, Day, NCS, Check-ins, Traffic, Time (QTR), the stations that checked in from each area/region, and the traffic To and From each Area (or each group, on a net with no Area groups, such as one divided by state), with a totals row at the bottom. Pick a **Month**, and use **Days** to show only one day of the week (e.g. Fridays). **Export CSV** saves the report, ready to open in Excel, LibreOffice, or Zoho. Area/region columns appear on a [Traffic Net](#traffic-net-mode) with Traffic Groups set up.
 - **This Month** — total check-ins and QTC for the current calendar month, plus **Net Sessions**: the number of distinct days this month with at least one check-in — a stand-in for how many times the net actually ran. Check-ins counts every check-in, so a station that checked in on 4 nets this month counts 4 times.
 - **Stale Check-ins (>30 / >90 days)** — lists every station whose Last Check-in is older than that many days (or who has never checked in), sorted most-overdue first. Each row has a **✕** to remove that one station from the Roster, or use **Remove All Listed** to clear the whole batch at once; both ask for confirmation first.
 - **Export Roster CSV** — downloads the current Roster (including Area, Region, Phone, Email, Street, and ZIP) in the same format [Import Roster CSV](#settings) accepts, so it round-trips cleanly.
@@ -186,13 +186,13 @@ These carry into the [Net Report](#reports-tab), one row per session.
 
 ### Traffic Groups
 
-Settings → **Traffic Groups** is the list of areas and regions this net sorts stations into and logs traffic to — for an NTS Area net, something like EAN, R5, R9, R10, WAN. Each group has:
+Settings → **Traffic Groups** is the list of areas, regions, or states this net sorts stations into and logs traffic to — for an NTS Area net, something like EAN, R5, R9, R10, WAN; for a net that covers a single region, one group per state (or per few states). Each group has:
 
 - **Label** — the short name shown on screen and in reports (`EAN`, `R5`).
-- **Type** — **Area** or **Region**.
-- **Matches roster** — the Area or Region value on the Roster that puts a station in this group (`Eastern`, `5`).
+- **Type** — **Area**, **Region**, or **State**.
+- **Matches roster** — the Area, Region, or State value on the Roster that puts a station in this group (`Eastern`, `5`, `NE`). List several values separated by commas to cover more than one — e.g. a State group matching `IA, MO`.
 
-A station's **Region** is checked first, then its **Area** — so a Region 8 station whose Area is Eastern lands in EAN when there's no R8 group. Capitalization and extras like "Area" or "Region" don't matter (`EASTERN`, `Eastern Area`, and `Eastern` all match). Use ▲ ▼ to set the order the groups appear in, and **✕** to remove one.
+The most specific match wins: a station's **State** is checked first, then its **Region**, then its **Area** — so a Region 8 station whose Area is Eastern lands in EAN when there's no R8 group, and a state-divided net can add a Region group as a catch-all for stations from states it doesn't list. Capitalization and extras like "Area" or "Region" don't matter (`EASTERN`, `Eastern Area`, and `Eastern` all match). Use ▲ ▼ to set the order the groups appear in, and **✕** to remove one.
 
 **Use NTS Central Area preset** fills in EAN (Area: Eastern), R5, R9, R10 (Regions 5, 9, 10), and WAN (Area: Western) in one click.
 

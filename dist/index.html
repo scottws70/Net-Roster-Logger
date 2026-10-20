@@ -552,7 +552,7 @@
 
     <div class="settings-section" id="trafficGroupsSection" style="display:none;">
       <h3>Traffic Groups</h3>
-      <p class="hint">The areas and regions this net sorts stations into, and logs traffic to — e.g. EAN, R5, R9, R10, WAN. Each station is placed automatically from its roster Region (checked first) or Area. With no groups, Main uses a single QTC and Destination field instead.</p>
+      <p class="hint">The areas, regions, or states this net sorts stations into, and logs traffic to — e.g. EAN, R5, R9, R10, WAN for an Area net, or one group per state for a single-region net. Each station is placed automatically from its roster State (checked first), then Region, then Area. "Matches" can list several values separated by commas (e.g. IA, NE, MO). With no groups, Main uses a single QTC and Destination field instead.</p>
       <div class="group-list" id="groupList"></div>
       <div class="row">
         <button class="secondary" id="addGroupBtn">+ Add Group</button>
@@ -913,15 +913,22 @@ function groupById(id){
 function normGroupMatch(v){
   return String(v||'').trim().toLowerCase().replace(/\.0+$/,'').replace(/^region\s*/,'').replace(/\s+area$/,'');
 }
-/* A station's group: a Region group matching its region wins, else an Area group matching its area. */
+/* A group's match can list several values, e.g. "IA, NE, MO". */
+function groupMatchValues(g){
+  return String(g.match||'').split(',').map(normGroupMatch).filter(Boolean);
+}
+const GROUP_TYPE_LABELS = {state:'State', region:'Region', area:'Area'};
+/* A station's group: the most specific match wins — State, then Region, then Area. */
 function groupForStation(r){
   if(!r) return '';
   const gs = trafficGroups();
-  const reg = normGroupMatch(r.region), area = normGroupMatch(r.area);
-  const byRegion = reg && gs.find(g => g.type === 'region' && normGroupMatch(g.match) === reg);
-  if(byRegion) return byRegion.id;
-  const byArea = area && gs.find(g => g.type === 'area' && normGroupMatch(g.match) === area);
-  return byArea ? byArea.id : '';
+  for(const type of ['state', 'region', 'area']){
+    const val = normGroupMatch(r[type]);
+    if(!val) continue;
+    const g = gs.find(g => g.type === type && groupMatchValues(g).includes(val));
+    if(g) return g.id;
+  }
+  return '';
 }
 function qniListedTotal(q){
   return Object.values(q.traffic || {}).reduce((sum, t) => sum + (t.listed || 0), 0);
@@ -1736,7 +1743,7 @@ document.getElementById('addRosterYes').addEventListener('click', ()=>{
     };
     // A group picked for a new station becomes its roster Area or Region, so it's placed next time too
     const g = pendingNewStation.extra && groupById(pendingNewStation.extra.group);
-    if(g) entry[g.type] = g.match;
+    if(g && !entry[g.type]) entry[g.type] = String(g.match||'').split(',')[0].trim();
     insertRosterEntry(entry);
     addQni(pendingNewStation.callsign, '', pendingNewStation.destination || '', pendingNewStation.qtc || 0, pendingNewStation.extra);
     if(pendingNewStation.qtc) addQtc(pendingNewStation.qtc);
@@ -1837,10 +1844,11 @@ function hideNetReport(){
   document.getElementById('netReport').style.display='none';
 }
 /* Builds the report as plain values, shared by the on-screen table and the CSV export.
-   Columns: session info, the stations from each group, then traffic To and From each Area group. */
+   Columns: session info, the stations from each group, then traffic To and From each Area group —
+   or each group, on a net with no Areas (e.g. one divided by state). */
 function buildNetReport(monthStr, weekday){
   const gs = trafficGroups();
-  const areas = gs.filter(g => g.type === 'area');
+  const areas = gs.some(g => g.type === 'area') ? gs.filter(g => g.type === 'area') : gs;
   const prefix = monthStr + '-';
   const dates = new Set();
   DATA.qni.forEach(q => { if(q.date.startsWith(prefix)) dates.add(q.date); });
@@ -1875,7 +1883,7 @@ function buildNetReport(monthStr, weekday){
     sessions: rows.length,
     checkins: sum(rows.map(r => r.checkins)),
     traffic: sum(rows.map(r => r.traffic)),
-    qtr: sum(rows.map(r => r.qtr)),
+    qtr: rows.some(r => r.qtr !== null) ? sum(rows.map(r => r.qtr)) : null,
     to: areas.map((g,i) => sum(rows.map(r => r.to[i]))),
     from: areas.map((g,i) => sum(rows.map(r => r.from[i])))
   };
@@ -2518,9 +2526,10 @@ function renderGroupList(){
           <select class="g-type">
             <option value="area" ${g.type==='area'?'selected':''}>Area</option>
             <option value="region" ${g.type==='region'?'selected':''}>Region</option>
+            <option value="state" ${g.type==='state'?'selected':''}>State</option>
           </select>
         </div>
-        <div class="roster-field"><label>Matches roster ${g.type==='region'?'Region':'Area'}</label><input type="text" class="g-match" placeholder="${g.type==='region'?'e.g. 5':'e.g. Eastern'}" value="${escapeHtml(g.match)}"></div>
+        <div class="roster-field"><label>Matches roster ${GROUP_TYPE_LABELS[g.type] || 'Area'}</label><input type="text" class="g-match" placeholder="${{region:'e.g. 5', state:'e.g. NE, or IA, MO', area:'e.g. Eastern'}[g.type] || ''}" value="${escapeHtml(g.match)}"></div>
         <div class="roster-entry-del">
           <button class="del-btn g-up" title="Move up" style="color:var(--text-dim);" ${i===0?'disabled':''}>▲</button>
           <button class="del-btn g-down" title="Move down" style="color:var(--text-dim);" ${i===gs.length-1?'disabled':''}>▼</button>
