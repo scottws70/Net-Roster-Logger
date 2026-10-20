@@ -10,7 +10,7 @@
 
 # N8VCL Net Roster Logger — User Manual
 
-Updated Oct 16, 2026 for v1.30.0 · @Scott
+Updated Oct 20, 2026 for v1.30.1 · @Scott
 
 ## Overview
 
