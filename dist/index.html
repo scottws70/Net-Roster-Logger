@@ -185,6 +185,9 @@
   }
   .checkin-item .call{font-family:var(--mono);color:var(--accent);font-weight:600;font-size:calc(16px * var(--checkins-scale));}
   .checkin-item .nm{display:block;color:var(--text-dim);font-size:calc(14px * var(--checkins-scale));margin-top:1px;}
+  .checkin-item{position:relative;padding-right:28px;}
+  .checkin-item .ci-del{position:absolute;top:3px;right:2px;font-size:13px;opacity:.35;}
+  .checkin-item .ci-del:hover{opacity:1;}
   .checkin-item .qtc-line{display:block;color:var(--text-dim);font-size:11px;margin-top:2px;letter-spacing:.3px;}
   .checkins-empty{color:var(--text-dim);font-size:12px;padding:4px 2px;}
   @media (max-width:760px){
@@ -859,12 +862,12 @@ function addQni(callsign, notes, destination, qtc, extra){
     if(destination) existing.destination = destination;
     if(qtc) existing.qtc = (existing.qtc || 0) + qtc;
     if(extra) mergeQniExtra(existing, extra);
+    return existing;
   }
-  else{
-    const rec = {callsign:callsign.toUpperCase(), date:d, notes: notes||'', destination: destination||'', qtc: qtc||0};
-    if(extra) mergeQniExtra(rec, extra);
-    DATA.qni.push(rec);
-  }
+  const rec = {callsign:callsign.toUpperCase(), date:d, notes: notes||'', destination: destination||'', qtc: qtc||0};
+  if(extra) mergeQniExtra(rec, extra);
+  DATA.qni.push(rec);
+  return rec;
 }
 function mergeQniExtra(rec, extra){
   if(extra.group) rec.group = extra.group;
@@ -881,12 +884,35 @@ function mergeQniExtra(rec, extra){
 function markCheckedIn(call, notes, destination, qtc, extra){
   const r = findRosterByCall(call);
   if(!r) return false;
+  // Remember the station as it was before today, so removeCheckin can put it back
+  const prev = {lastCheckin: r.lastCheckin || '', inactive: !!r.inactive};
   r.lastCheckin = todayStr();
   r.inactive = false;
-  addQni(r.callsign, notes, destination, qtc, extra);
+  const rec = addQni(r.callsign, notes, destination, qtc, extra);
+  if(!rec.prev && prev.lastCheckin !== todayStr()) rec.prev = prev;
   saveData();
   renderCheckins();
   return true;
+}
+
+/* Undoes an accidental check-in: drops today's log entry, takes back any QTC it
+   added, and restores the station's previous Last Check-in and Inactive state. */
+function removeCheckin(qi){
+  const q = DATA.qni[qi];
+  if(!q || q.date !== todayStr()) return;
+  if(!confirm(`Remove ${q.callsign} from today's check-ins?`)) return;
+  DATA.qni.splice(qi, 1);
+  if(q.qtc) addQtc(-q.qtc);
+  const r = findRosterByCall(q.callsign);
+  if(r){
+    const call = q.callsign.toUpperCase();
+    const lastLogged = DATA.qni.filter(x => x.callsign.toUpperCase() === call).map(x => x.date).sort().pop() || '';
+    const before = q.prev ? q.prev.lastCheckin : '';
+    r.lastCheckin = lastLogged > before ? lastLogged : before;
+    if(q.prev && q.prev.inactive) r.inactive = true;
+  }
+  saveData();
+  renderCheckins();
 }
 
 /* ---------- Traffic groups (areas / regions) ---------- */
@@ -1005,10 +1031,17 @@ function renderCheckinsList(){
     if(isTraffic && r && r.state) nameText += (nameText ? ' - ' : '') + r.state;
     const g = matrix && groupById(q.group);
     if(g) nameText += (nameText ? ' · ' : '') + g.label;
-    return `<div class="checkin-item"><span class="call">${escapeHtml(q.callsign)}</span><span class="nm">${escapeHtml(nameText)}</span>${qtcLine}</div>`;
+    return `<div class="checkin-item"><button class="del-btn ci-del" data-qi="${DATA.qni.indexOf(q)}" title="Remove this check-in">✕</button><span class="call">${escapeHtml(q.callsign)}</span><span class="nm">${escapeHtml(nameText)}</span>${qtcLine}</div>`;
   }).join('');
   list.scrollTop = list.scrollHeight;
 }
+document.getElementById('checkinsList').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.ci-del');
+  if(!btn) return;
+  // Drop focus so a later Space on the Main tab advances roll call instead of re-clicking this
+  btn.blur();
+  removeCheckin(Number(btn.dataset.qi));
+});
 
 /* ---------- Net Session box (Traffic Net Main) ---------- */
 function renderSessionBox(){
@@ -1385,6 +1418,18 @@ function getNextEligibleIndex(list, startIdx){
   return -1;
 }
 
+/* A station's standing note, shown on the Main card at every net until changed.
+   Stations without one yet pick up the latest note typed at a past check-in. */
+function stationNote(r){
+  if(r.notes !== undefined) return r.notes;
+  const call = r.callsign.toUpperCase();
+  const last = DATA.qni
+    .filter(q => q.callsign.toUpperCase() === call && q.notes)
+    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+    .pop();
+  return last ? last.notes : '';
+}
+
 function renderMain(skipCheckinRevalidate){
   if(DATA.mainCursorDate !== todayStr()){
     DATA.mainCursor = null;
@@ -1425,7 +1470,7 @@ function renderMain(skipCheckinRevalidate){
       </div>
       <div class="field" style="margin-top:16px;">
         <label>Notes</label>
-        <input type="text" id="mainNotes" autocomplete="off" placeholder="Short note for this check-in...">
+        <input type="text" id="mainNotes" autocomplete="off" placeholder="Note for this station (kept for future nets)..." value="${escapeHtml(stationNote(r))}">
       </div>
       <label style="display:flex;align-items:center;gap:7px;margin-top:12px;font-size:13px;color:var(--text-dim);cursor:pointer;">
         <input type="checkbox" id="mainInactive" style="width:auto;"> Mark this station Inactive (hide from Main roll call)
@@ -1437,6 +1482,10 @@ function renderMain(skipCheckinRevalidate){
       </div>
     </div>
   `;
+  document.getElementById('mainNotes').addEventListener('input', (e)=>{
+    r.notes = e.target.value;
+    saveData();
+  });
   document.getElementById('mainInactive').addEventListener('change', (e)=>{
     r.inactive = e.target.checked;
     saveData();
@@ -2207,11 +2256,11 @@ function csvEscape(val){
 }
 document.getElementById('exportRosterBtn').addEventListener('click', async ()=>{
   const header = ['Callsign','Name','Spouse','City','State','URL','Birthday','Anniversary','Last Check-in','Inactive',
-                  'Area','Region','Phone','Email','Street','ZIP'];
+                  'Area','Region','Phone','Email','Street','ZIP','Notes'];
   const rows = sortedRoster().map(r => [
     r.callsign||'', r.name||'', r.spouse||'', r.city||'', r.state||'',
     r.url||'', r.birthday||'', r.anniversary||'', r.lastCheckin||'', r.inactive ? 'Yes' : 'No',
-    r.area||'', r.region||'', r.phone||'', r.email||'', r.street||'', r.zip||''
+    r.area||'', r.region||'', r.phone||'', r.email||'', r.street||'', r.zip||'', stationNote(r)
   ]);
   const csv = [header, ...rows].map(row => row.map(csvEscape).join(',')).join('\r\n');
   const blob = new Blob([csv], {type:'text/csv'});
@@ -2334,6 +2383,7 @@ const HEADER_ALIASES = {
   'email':'email','emailaddress':'email',
   'street':'street','address':'street','streetaddress':'street',
   'zip':'zip','zipcode':'zip','postalcode':'zip','postcode':'zip',
+  'notes':'notes','note':'notes',
   // A roster with separate first/last name columns is combined into Name
   'first':'firstName','firstname':'firstName','firstmi':'firstName',
   'last':'lastName','lastname':'lastName'
@@ -2451,7 +2501,9 @@ function importRosterCSV(text){
         birthday: obj.birthday||'', anniversary: obj.anniversary||'', lastCheckin: obj.lastCheckin||'',
         inactive: inactiveVal || false,
         area: obj.area||'', region: obj.region||'', phone: obj.phone||'', email: obj.email||'',
-        street: obj.street||'', zip: obj.zip||''
+        street: obj.street||'', zip: obj.zip||'',
+        // Left unset when blank, so stationNote can still fall back to past check-in notes
+        ...(obj.notes ? {notes: obj.notes} : {})
       });
       added++;
     }

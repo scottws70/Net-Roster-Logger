@@ -86,7 +86,7 @@ Main shows one station at a time from the Roster, sorted by callsign suffix (the
 
 A station already checked in today is skipped automatically as you move forward. The roll call restarts from the top of the Roster each new day, so anyone not checked in today — whether that's from yesterday, last week, or never — will come up again.
 
-**Notes** is a free-text field for that day's check-in; it isn't auto-focused, so typing in it doesn't accidentally eat a Space or arrow key press — click into it first.
+**Notes** is a free-text note that stays with the station: whatever you type is saved as you type it and shows up again on their card at every net until you change or clear it — handy for "new grandson," "away until November," or anything you want to ask about next time. It's kept whether you check the station in or skip them. The field isn't auto-focused, so typing in it doesn't accidentally eat a Space or arrow key press — click into it first, then click outside it before using Space or the arrows again.
 
 **Inactive** hides a station from the roll call entirely (it won't come up with Space or →). The attribute is cleared automatically the next time that station checks in, from any tab, so they will once again appear during the Roll-Call.
 
@@ -107,6 +107,8 @@ The app switches here automatically the moment you reach the end of the Roster o
 ## Check-ins Today Panel (Appearance)
 
 A panel on the right, visible on every tab, listing Callsign and Name for every station checked in today. It updates the moment a check-in happens — from Main, Early Check-ins, or End of the List — and auto-scrolls down to show each new entry as it's added.
+
+Checked in someone by mistake? Click the **✕** on their entry and confirm. The check-in is removed from today's log, any QTC it added is taken back off the day's count, and the station's Last Check-in (and Inactive setting, if it had one) go back to what they were. On a Roll Call net they'll come up again when roll call reaches them; if roll call has already passed them, use ← on the Main tab to go back.
 
 Drag the panel's left edge to resize it; the text scales up or down with the width. The size you choose is remembered separately for each net.
 
@@ -156,7 +158,7 @@ Each station is shown as a two-line card: Callsign, Name, Spouse, City, State on
 
 A third line holds Area, Region, Phone, Email, Street, and ZIP. Area and Region are what a [Traffic Net](#traffic-net-mode) uses to place each station in its group (e.g. Area `Eastern`, or Region `5`).
 
-**Import Roster CSV** adds or updates stations in bulk. Recognized columns, in any order, case-insensitive: Callsign (or Call Sign), Name, Spouse, City, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No), Area, Region, Phone, Email, Street (or Address), ZIP. A roster with separate **First** and **Last** name columns is combined into Name. Spreadsheet leftovers are cleaned up on the way in: a Region of `5.0` becomes `5`, and a ZIP that lost its leading zero (`6484`) gets it back (`06484`). A row matching an existing callsign updates it; other rows are added as new stations. Birthday and Anniversary accept the same flexible formats described under [Birthdays & Anniversaries](#birthdays-anniversaries).
+**Import Roster CSV** adds or updates stations in bulk. Recognized columns, in any order, case-insensitive: Callsign (or Call Sign), Name, Spouse, City, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No), Area, Region, Phone, Email, Street (or Address), ZIP, Notes. A roster with separate **First** and **Last** name columns is combined into Name. Spreadsheet leftovers are cleaned up on the way in: a Region of `5.0` becomes `5`, and a ZIP that lost its leading zero (`6484`) gets it back (`06484`). A row matching an existing callsign updates it (a blank cell leaves that field as it was); other rows are added as new stations. Birthday and Anniversary accept the same flexible formats described under [Birthdays & Anniversaries](#birthdays-anniversaries).
 
 ## Traffic Net Mode
 
