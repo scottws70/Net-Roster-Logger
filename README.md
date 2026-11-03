@@ -28,8 +28,8 @@ Each net can be set up as a **Roll Call Net** (the default, described throughout
 2. Go to **Settings** and fill in:
    - **Net Name** and **NCS Callsign**, under Net Info.
    - The **Preamble** script read at the start of the net.
-   - The **Roster**: add stations one at a time with **+ Add Station**, or bring in a list at once with **Import Roster CSV** (see [Settings](#settings) → Roster).
-3. Go to **Main** to start roll call. See [Main Tab (Roll Call)](#main-tab-roll-call).
+3. Go to the **Roster** tab and add stations one at a time with **+ Add Station**, or bring in a list at once with **Import Roster CSV** (see [Roster Tab](#roster-tab)).
+4. Go to **Main** to start roll call. See [Main Tab (Roll Call)](#main-tab-roll-call).
 
 Nothing here needs to be redone before every net — the Roster, Preamble, and Net Info are saved and stay in place until you change them.
 
@@ -118,7 +118,7 @@ Drag the panel's left edge to resize it; the text scales up or down with the wid
 - **Net Report** — one row per net session for a chosen month: Date, Day, NCS, Check-ins, Traffic, Time (QTR), the stations that checked in from each area/region, and the traffic To and From each Area (or each group, on a net with no Area groups, such as one divided by state), with a totals row at the bottom. Pick a **Month**, and use **Days** to show only one day of the week (e.g. Fridays). **Export CSV** saves the report, ready to open in Excel, LibreOffice, or Zoho. Area/region columns appear on a [Traffic Net](#traffic-net-mode) with Traffic Groups set up.
 - **This Month** — total check-ins and QTC for the current calendar month, plus **Net Sessions**: the number of distinct days this month with at least one check-in — a stand-in for how many times the net actually ran. Check-ins counts every check-in, so a station that checked in on 4 nets this month counts 4 times.
 - **Stale Check-ins (>30 / >90 days)** — lists every station whose Last Check-in is older than that many days (or who has never checked in), sorted most-overdue first. Each row has a **✕** to remove that one station from the Roster, or use **Remove All Listed** to clear the whole batch at once; both ask for confirmation first.
-- **Export Roster CSV** — downloads the current Roster (including Area, Region, Phone, Email, Street, and ZIP) in the same format [Import Roster CSV](#settings) accepts, so it round-trips cleanly.
+- **Export Roster CSV** — downloads the current Roster (including Area, Region, Phone, Email, Street, and ZIP) in the same format [Import Roster CSV](#roster-tab) accepts, so it round-trips cleanly.
 - **Backup All Data** / **Restore All Data** — see [Backup & Restore and Data Safety](#backup-restore-and-data-safety).
 
 ## Settings Tab
@@ -152,7 +152,9 @@ Choose a folder for Backups and a folder for Roster exports, so they save automa
 
 The text shown on the [Preamble](#preamble) tab.
 
-### Roster
+## Roster Tab
+
+The last tab, right after Settings. Each net has its own Roster; it's shown on both Roll Call and Traffic nets.
 
 Each station is shown as a two-line card: Callsign, Name, Spouse, City, State on the first line; Birthday, Anniversary, Last Check-in, QRZ URL, and an Inactive checkbox on the second. **+ Add Station** adds a blank one. Callsign fields force uppercase as you type.
 
@@ -236,13 +238,13 @@ I recommend first setting your net up in the Settings tab, and once that's done 
 
 ## Troubleshooting
 
-**A station I expect to see on Main isn't showing up.** Check whether it's marked Inactive in Settings → Roster — inactive stations are hidden from roll call until they check in again from any tab.  Or perhaps they checked in early.
+**A station I expect to see on Main isn't showing up.** Check whether it's marked Inactive in the Roster tab — inactive stations are hidden from roll call until they check in again from any tab.  Or perhaps they checked in early.
 
 **“Matches multiple callsigns” message in Early Check-ins or End of the List.** The suffix you typed matches more than one station. Type the full callsign instead.
 
-**“No roster match” when checking in by name.** Name lookup needs the whole Name exactly as it's entered on the Roster (capitalization aside). Enter the callsign instead, or check the spelling in Settings → Roster.
+**“No roster match” when checking in by name.** Name lookup needs the whole Name exactly as it's entered on the Roster (capitalization aside). Enter the callsign instead, or check the spelling in the Roster tab.
 
-**A station shows up as Unassigned on the Traffic Board.** Its Roster Area/Region doesn't match any Traffic Group. Fill in its Area or Region in Settings → Roster, or check the group's "Matches roster" value.
+**A station shows up as Unassigned on the Traffic Board.** Its Roster Area/Region doesn't match any Traffic Group. Fill in its Area or Region in the Roster tab, or check the group's "Matches roster" value.
 
 **Some tabs are missing.** The net is probably set to Traffic Net — see Settings → Net Type and [Traffic Net Mode](#traffic-net-mode).
 

@@ -370,6 +370,7 @@
   <button data-tab="endlist"><span class="dot"></span>End of the List</button>
   <button data-tab="reports"><span class="dot"></span>Reports</button>
   <button data-tab="settings"><span class="dot"></span>Settings</button>
+  <button data-tab="roster"><span class="dot"></span>Roster</button>
 </nav>
 
 <div class="content-wrap">
@@ -628,21 +629,22 @@
       <h3>Preamble Script</h3>
       <div class="field"><textarea id="setPreamble" rows="6"></textarea></div>
     </div>
+  </section>
 
-    <div class="settings-section">
-      <h3>Roster</h3>
-      <p class="hint">Callsign is split automatically into prefix / suffix for sorting (e.g. W1AW → prefix "W1", suffix "AW"; AE5EI → prefix "AE5", suffix "EI"). The roster list is always kept sorted by suffix.</p>
-      <p class="hint">Import a CSV to add or update stations in bulk. Recognized columns (any order, case-insensitive): Callsign, Name, Spouse, City, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No). Rows matching an existing callsign update that entry; other rows are added as new stations. Birthday and Anniversary accept partial info — a bare year (e.g. "1984") or just month/day (e.g. "1/4") — as well as full dates; a value with only a year won't trigger the Birthdays &amp; Anniversaries tab since the day isn't known.</p>
-      <div class="row" style="align-items:center;">
-        <div class="field" style="max-width:320px;">
-          <label>Import Roster CSV</label>
-          <input type="file" id="csvImportInput" accept=".csv,text/csv">
-        </div>
-        <span class="flash" id="csvImportFlash"></span>
+  <!-- ROSTER TAB -->
+  <section class="tabpanel panel" id="tab-roster" style="display:none;">
+    <h2 class="tab-title">Roster</h2>
+    <p class="hint">Callsign is split automatically into prefix / suffix for sorting (e.g. W1AW → prefix "W1", suffix "AW"; AE5EI → prefix "AE5", suffix "EI"). The roster list is always kept sorted by suffix.</p>
+    <p class="hint">Import a CSV to add or update stations in bulk. Recognized columns (any order, case-insensitive): Callsign, Name, Spouse, City, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No), Area, Region, Phone, Email, Street, ZIP, Notes. Separate First and Last name columns are combined into Name. Rows matching an existing callsign update that entry (a blank cell leaves that field as it was); other rows are added as new stations. Birthday and Anniversary accept partial info — a bare year (e.g. "1984") or just month/day (e.g. "1/4") — as well as full dates; a value with only a year won't trigger the Birthdays &amp; Anniversaries tab since the day isn't known.</p>
+    <div class="row" style="align-items:center;">
+      <div class="field" style="max-width:320px;">
+        <label>Import Roster CSV</label>
+        <input type="file" id="csvImportInput" accept=".csv,text/csv">
       </div>
-      <div class="roster-list" id="rosterList"></div>
-      <button class="secondary" id="addRosterRow" style="margin-top:10px;">+ Add Station</button>
+      <span class="flash" id="csvImportFlash"></span>
     </div>
+    <div class="roster-list" id="rosterList"></div>
+    <button class="secondary" id="addRosterRow" style="margin-top:10px;">+ Add Station</button>
   </section>
 
 </main>
@@ -1275,6 +1277,7 @@ function showTab(tab){
   if(tab==='bday') renderBdays();
   if(tab==='traffic') renderTrafficIfEmpty();
   if(tab==='settings') renderSettings();
+  if(tab==='roster') renderRosterTable();
 }
 document.getElementById('tabNav').addEventListener('click', e=>{
   const btn = e.target.closest('button[data-tab]');
@@ -1439,7 +1442,7 @@ function renderMain(skipCheckinRevalidate){
   const list = sortedRoster();
   if(list.length === 0){
     document.getElementById('mainContent').innerHTML =
-      '<p class="empty-msg">The roster is empty. Add stations in Settings → Roster.</p>';
+      '<p class="empty-msg">The roster is empty. Add stations on the Roster tab.</p>';
     return;
   }
   if(DATA.mainCursor === null || DATA.mainCursor === undefined){
@@ -2554,7 +2557,6 @@ function renderSettings(){
   document.getElementById('setShowIdTimer').checked = DATA.settings.showIdTimer !== false;
   document.getElementById('setNetType').value = DATA.settings.netType || 'rollcall';
   renderGroupList();
-  renderRosterTable();
 }
 
 /* ---------- Traffic Groups editor ---------- */
