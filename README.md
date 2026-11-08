@@ -68,13 +68,13 @@ Fill in a row, then press **Enter** or **Tab** out of it to open a new blank row
 For stations that check in before or outside the normal roll call. Fields: Callsign, Name, City, State.
 
 - **Callsign** accepts the full callsign (`W1AW`) or just the suffix (`AW`), as long as that suffix matches exactly one station on the Roster. If it matches more than one, you'll be asked to type the full callsign instead.
-- **Name lookup:** if you don't have the callsign handy, leave Callsign blank, type the station's **Name**, and press **Enter**. If exactly one station on the Roster has that name, it's checked in. If several do, you'll see their callsigns and be asked to type the callsign instead. The name must match the whole Name field (capitalization doesn't matter) — `Mark` finds "Mark", but not "Mark Smith".
+- **Name lookup:** if you don't have the callsign handy, leave Callsign blank, type the station's **Name**, **Last Name**, or both (`Mark`, `Smith`, or `Mark Smith`), and press **Enter**. If exactly one station on the Roster matches, it's checked in. If several do, you'll see their callsigns and be asked to type the callsign instead. Each name must match the whole field (capitalization doesn't matter) — `Mar` won't find "Mark".
 - A **known** callsign is checked in immediately.
-- An **unknown** callsign prompts “Add to Roster?” — choosing Yes adds it using the Name/City/State you typed and checks it in; No just clears the fields. If it's a new station, and they want to be added to the roster, click "No" first, then re-enter the call, get the name, city, state, press enter, and answer Yes to "Add to Roster?"
+- An **unknown** callsign prompts “Add to Roster?” — choosing Yes adds it using the Name/City/State you typed and checks it in; No just clears the fields. If it's a new station, and they want to be added to the roster, click "No" first, then re-enter the call, get the name, city, state, press enter, and answer Yes to "Add to Roster?" With a [QRZ login](#qrzcom-login) saved, the new station's QRZ photo is fetched in the background, and its Name and Last Name are filled in from QRZ if you left them blank.
 
 ## Main Tab (Roll Call)
 
-Main shows one station at a time from the Roster, sorted by callsign suffix (the letters after the number — W1AW sorts under "AW"). Its card shows Name, Spouse, City, State, Birthday, Anniversary, Last Check-in, a Notes field, and an Inactive checkbox.
+Main shows one station at a time from the Roster, sorted by callsign suffix (the letters after the number — W1AW sorts under "AW"). Its card shows Name, Last Name, Spouse, City, State, Birthday, Anniversary, Last Check-in, a Notes field, and an Inactive checkbox. If the station has a [QRZ photo](#qrz-photos-and-names), it's shown at the top right of the card.
 
 **Keyboard shortcuts** (These work as soon as you're on the Main tab, as long as you haven't clicked into the Notes field):
 
@@ -118,7 +118,6 @@ Drag the panel's left edge to resize it; the text scales up or down with the wid
 - **Net Report** — one row per net session for a chosen month: Date, Day, NCS, Check-ins, Traffic, Time (QTR), the stations that checked in from each area/region, and the traffic To and From each Area (or each group, on a net with no Area groups, such as one divided by state), with a totals row at the bottom. Pick a **Month**, and use **Days** to show only one day of the week (e.g. Fridays). **Export CSV** saves the report, ready to open in Excel, LibreOffice, or Zoho. Area/region columns appear on a [Traffic Net](#traffic-net-mode) with Traffic Groups set up.
 - **This Month** — total check-ins and QTC for the current calendar month, plus **Net Sessions**: the number of distinct days this month with at least one check-in — a stand-in for how many times the net actually ran. Check-ins counts every check-in, so a station that checked in on 4 nets this month counts 4 times.
 - **Stale Check-ins (>30 / >90 days)** — lists every station whose Last Check-in is older than that many days (or who has never checked in), sorted most-overdue first. Each row has a **✕** to remove that one station from the Roster, or use **Remove All Listed** to clear the whole batch at once; both ask for confirmation first.
-- **Export Roster CSV** — downloads the current Roster (including Area, Region, Phone, Email, Street, and ZIP) in the same format [Import Roster CSV](#roster-tab) accepts, so it round-trips cleanly.
 - **Backup All Data** / **Restore All Data** — see [Backup & Restore and Data Safety](#backup-restore-and-data-safety).
 
 ## Settings Tab
@@ -148,6 +147,16 @@ Choose a folder for Backups and a folder for Roster exports, so they save automa
 - **Reset** clears the choice. This setting belongs to the computer, not to a net, so it isn't included in Backup/Restore.
 - The location is a setting that applies to all nets. All other settings are per-net.
 
+### QRZ.com Login
+
+Your QRZ.com username and password, used to look stations up on QRZ for their photos and names (see [QRZ Photos and Names](#qrz-photos-and-names)). Photos need an active QRZ **XML Logbook Data** subscription; a free QRZ account can sign in but gets only limited data back.
+
+- **Save** stores the login. To change just the username, leave Password blank and the saved password is kept.
+- **Test Login** signs in to QRZ and tells you whether the account's XML subscription is active, and until when.
+- **Clear** removes the saved login.
+
+Like File Locations, the login belongs to the computer, not to a net: it's saved only in the app's settings folder on this computer, applies to all nets, and is never included in Backups. This section works only in the installed app.
+
 ### Preamble Script
 
 The text shown on the [Preamble](#preamble) tab.
@@ -156,11 +165,23 @@ The text shown on the [Preamble](#preamble) tab.
 
 The last tab, right after Settings. Each net has its own Roster; it's shown on both Roll Call and Traffic nets.
 
-Each station is shown as a two-line card: Callsign, Name, Spouse, City, State on the first line; Birthday, Anniversary, Last Check-in, QRZ URL, and an Inactive checkbox on the second. **+ Add Station** adds a blank one. Callsign fields force uppercase as you type.
+Each station is shown as a card: Callsign, Name, Last Name, Spouse, City, State on the first line; Birthday, Anniversary, Last Check-in, QRZ URL, and an Inactive checkbox on the second. **+ Add Station** adds a blank one. Callsign fields force uppercase as you type.
 
 A third line holds Area, Region, Phone, Email, Street, and ZIP. Area and Region are what a [Traffic Net](#traffic-net-mode) uses to place each station in its group (e.g. Area `Eastern`, or Region `5`).
 
-**Import Roster CSV** adds or updates stations in bulk. Recognized columns, in any order, case-insensitive: Callsign (or Call Sign), Name, Spouse, City, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No), Area, Region, Phone, Email, Street (or Address), ZIP, Notes. A roster with separate **First** and **Last** name columns is combined into Name. Spreadsheet leftovers are cleaned up on the way in: a Region of `5.0` becomes `5`, and a ZIP that lost its leading zero (`6484`) gets it back (`06484`). A row matching an existing callsign updates it (a blank cell leaves that field as it was); other rows are added as new stations. Birthday and Anniversary accept the same flexible formats described under [Birthdays & Anniversaries](#birthdays-anniversaries).
+**Import Roster CSV** adds or updates stations in bulk. Recognized columns, in any order, case-insensitive: Callsign (or Call Sign), Name, Last Name (or Last, Surname), Spouse, City, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No), Area, Region, Phone, Email, Street (or Address), ZIP, Notes. A **First** column fills Name when there's no Name column. Spreadsheet leftovers are cleaned up on the way in: a Region of `5.0` becomes `5`, and a ZIP that lost its leading zero (`6484`) gets it back (`06484`). A row matching an existing callsign updates it (a blank cell leaves that field as it was); other rows are added as new stations. Birthday and Anniversary accept the same flexible formats described under [Birthdays & Anniversaries](#birthdays-anniversaries).
+
+**Export Roster CSV**, next to Import, saves the current Roster with every field above, in the same format Import accepts, so it round-trips cleanly.
+
+### QRZ Photos and Names
+
+With a [QRZ login](#qrzcom-login) saved (installed app only), the app can look stations up on QRZ.com:
+
+- **Get from QRZ** on a station's card looks that one station up. It downloads the station's QRZ photo and shows it on the card and on the Main roll-call card, and fills in **Name** and **Last Name** if they're blank. Names you've typed are never overwritten. QRZ's nickname is used for Name when the station has one, middle initials are dropped, and all-caps license names are tidied up (`HIRAM P` → `Hiram`).
+- **Fetch Missing from QRZ** looks up every station that hasn't been looked up yet and is missing a photo, Name, or Last Name, one at a time with a short pause between, so QRZ isn't flooded. It shows its progress and a summary at the end; click **Stop** to end it early. A station QRZ has no photo for isn't asked about again; use **Get from QRZ** on its card to retry.
+- **New stations are looked up automatically:** when you answer Yes to “Add to Roster?” from Early Check-ins, the Out of Sequence box, or End of the List, or type a callsign into a station card.
+
+Photos are downloaded once and saved on this computer, so they show during nets with no internet connection. They aren't included in Backups or roster CSV exports; after restoring a backup on another computer, Fetch Missing from QRZ downloads them again.
 
 ## Traffic Net Mode
 
@@ -242,7 +263,7 @@ I recommend first setting your net up in the Settings tab, and once that's done 
 
 **“Matches multiple callsigns” message in Early Check-ins or End of the List.** The suffix you typed matches more than one station. Type the full callsign instead.
 
-**“No roster match” when checking in by name.** Name lookup needs the whole Name exactly as it's entered on the Roster (capitalization aside). Enter the callsign instead, or check the spelling in the Roster tab.
+**“No roster match” when checking in by name.** Name lookup needs the whole Name, the whole Last Name, or both, exactly as entered on the Roster (capitalization aside). Enter the callsign instead, or check the spelling in the Roster tab.
 
 **A station shows up as Unassigned on the Traffic Board.** Its Roster Area/Region doesn't match any Traffic Group. Fill in its Area or Region in the Roster tab, or check the group's "Matches roster" value.
 

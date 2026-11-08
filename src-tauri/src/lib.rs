@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::Path;
 
+mod qrz;
+
 /// Saves a text file into a chosen folder. If a file with `filename` already
 /// exists there, `alt_filename` (the same name with a time stamp) is used instead,
 /// so an earlier backup is never overwritten. Returns the name actually used.
@@ -44,7 +46,18 @@ fn write_text_file(path: String, contents: String) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![save_text_file, write_text_file])
+        .manage(qrz::QrzSession::default())
+        .invoke_handler(tauri::generate_handler![
+            save_text_file,
+            write_text_file,
+            qrz::qrz_status,
+            qrz::qrz_save_credentials,
+            qrz::qrz_clear_credentials,
+            qrz::qrz_test_login,
+            qrz::qrz_photos_dir,
+            qrz::qrz_saved_photos,
+            qrz::qrz_lookup
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

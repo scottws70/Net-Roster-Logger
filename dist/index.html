@@ -204,7 +204,7 @@
 
   label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px;}
   .field{margin-bottom:14px;}
-  input[type=text],input[type=date],input[type=time],input[type=month],textarea,select{
+  input[type=text],input[type=password],input[type=date],input[type=time],input[type=month],textarea,select{
     width:100%;background:var(--panel-alt);border:1px solid var(--border);color:var(--text);
     border-radius:5px;padding:8px 10px;font-size:14px;
   }
@@ -229,6 +229,8 @@
     border:1px solid var(--border);border-radius:8px;background:var(--panel-alt);
     padding:20px;margin-bottom:16px;
   }
+  .station-photo{float:right;width:150px;max-width:35%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--border);margin:0 0 10px 16px;}
+  .roster-photo{width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border-soft);display:block;margin-bottom:4px;}
   .station-call{font-family:var(--mono);font-size:34px;color:var(--accent);letter-spacing:1px;}
   .station-grid{
     display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px 20px;margin-top:14px;
@@ -476,7 +478,6 @@
       <button class="secondary" id="reportNet">Net Report</button>
       <button class="secondary" id="reportStale30">Stale Check-ins (&gt;30 days)</button>
       <button class="secondary" id="reportStale90">Stale Check-ins (&gt;90 days)</button>
-      <button class="secondary" id="exportRosterBtn">Export Roster CSV</button>
     </div>
     <div class="report-nums" id="reportNums" style="display:none;">
       <div class="num-box"><div class="n" id="repCheckins">0</div><div class="l">Check-ins</div></div>
@@ -626,6 +627,21 @@
     </div>
 
     <div class="settings-section">
+      <h3>QRZ.com Login</h3>
+      <p class="hint">Used to look up stations on QRZ.com, such as their photos. Photos need an active QRZ <b>XML Logbook Data</b> subscription. Your login is saved only on this computer, in the app's settings folder; it isn't included in Backups and applies to all nets.</p>
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="max-width:220px;"><label>QRZ Username</label><input type="text" id="qrzUser" autocomplete="off" class="callsign-input"></div>
+        <div class="field" style="max-width:220px;"><label>QRZ Password</label><input type="password" id="qrzPass" autocomplete="new-password"></div>
+        <div class="field" style="flex:0 0 auto;min-width:0;">
+          <button class="secondary" id="qrzSave">Save</button>
+          <button class="secondary" id="qrzTest">Test Login</button>
+          <button class="secondary" id="qrzClear">Clear</button>
+        </div>
+      </div>
+      <span class="flash" id="qrzFlash"></span>
+    </div>
+
+    <div class="settings-section">
       <h3>Preamble Script</h3>
       <div class="field"><textarea id="setPreamble" rows="6"></textarea></div>
     </div>
@@ -635,13 +651,18 @@
   <section class="tabpanel panel" id="tab-roster" style="display:none;">
     <h2 class="tab-title">Roster</h2>
     <p class="hint">Callsign is split automatically into prefix / suffix for sorting (e.g. W1AW → prefix "W1", suffix "AW"; AE5EI → prefix "AE5", suffix "EI"). The roster list is always kept sorted by suffix.</p>
-    <p class="hint">Import a CSV to add or update stations in bulk. Recognized columns (any order, case-insensitive): Callsign, Name, Spouse, City, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No), Area, Region, Phone, Email, Street, ZIP, Notes. Separate First and Last name columns are combined into Name. Rows matching an existing callsign update that entry (a blank cell leaves that field as it was); other rows are added as new stations. Birthday and Anniversary accept partial info — a bare year (e.g. "1984") or just month/day (e.g. "1/4") — as well as full dates; a value with only a year won't trigger the Birthdays &amp; Anniversaries tab since the day isn't known.</p>
+    <p class="hint">Import a CSV to add or update stations in bulk. Recognized columns (any order, case-insensitive): Callsign, Name, Last Name, Spouse, City, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No), Area, Region, Phone, Email, Street, ZIP, Notes. A First column fills Name when there's no Name column. Rows matching an existing callsign update that entry (a blank cell leaves that field as it was); other rows are added as new stations. Birthday and Anniversary accept partial info — a bare year (e.g. "1984") or just month/day (e.g. "1/4") — as well as full dates; a value with only a year won't trigger the Birthdays &amp; Anniversaries tab since the day isn't known.</p>
     <div class="row" style="align-items:center;">
       <div class="field" style="max-width:320px;">
         <label>Import Roster CSV</label>
         <input type="file" id="csvImportInput" accept=".csv,text/csv">
       </div>
+      <button class="secondary" id="exportRosterBtn">Export Roster CSV</button>
       <span class="flash" id="csvImportFlash"></span>
+    </div>
+    <div class="row qrz-only" style="align-items:center;display:none;">
+      <button class="secondary" id="qrzFetchMissing">Fetch Missing from QRZ</button>
+      <span class="flash" id="qrzRosterFlash"></span>
     </div>
     <div class="roster-list" id="rosterList"></div>
     <button class="secondary" id="addRosterRow" style="margin-top:10px;">+ Add Station</button>
@@ -821,12 +842,16 @@ function findRosterByCall(call){
   return DATA.roster.find(r => r.callsign.toUpperCase().trim() === target);
 }
 
-/* Mirrors resolveCallsignInput, but matches by Name instead, for use when the
-   Callsign field is left blank. Returns the same shape of result. */
+/* Mirrors resolveCallsignInput, but matches by Name, Last Name, or both ("Mark Smith"),
+   for use when the Callsign field is left blank. Returns the same shape of result. */
 function resolveNameInput(input){
   const target = (input||'').trim().toLowerCase();
   if(!target) return {call:null, status:'empty'};
-  const candidates = DATA.roster.filter(r => (r.name||'').trim().toLowerCase() === target);
+  const candidates = DATA.roster.filter(r => {
+    const first = (r.name||'').trim().toLowerCase();
+    const last = (r.lastName||'').trim().toLowerCase();
+    return target === first || target === last || (last && target === (first + ' ' + last).trim());
+  });
   if(candidates.length === 1) return {call:candidates[0].callsign, status:'name'};
   if(candidates.length > 1) return {call:null, status:'ambiguous', candidates};
   return {call:null, status:'notfound'};
@@ -1461,9 +1486,11 @@ function renderMain(skipCheckinRevalidate){
   const r = list[DATA.mainCursor];
   document.getElementById('mainContent').innerHTML = `
     <div class="station-card">
+      ${photoImgHtml(r, 'station-photo')}
       <div class="station-call">${escapeHtml(r.callsign)}</div>
       <div class="station-grid">
         <div><span class="k">Name</span><span class="v">${escapeHtml(r.name||'—')}</span></div>
+        <div><span class="k">Last Name</span><span class="v">${escapeHtml(r.lastName||'—')}</span></div>
         <div><span class="k">Spouse</span><span class="v">${escapeHtml(r.spouse||'—')}</span></div>
         <div><span class="k">City</span><span class="v">${escapeHtml(r.city||'—')}</span></div>
         <div><span class="k">State</span><span class="v">${escapeHtml(r.state||'—')}</span></div>
@@ -1797,6 +1824,7 @@ document.getElementById('addRosterYes').addEventListener('click', ()=>{
     const g = pendingNewStation.extra && groupById(pendingNewStation.extra.group);
     if(g && !entry[g.type]) entry[g.type] = String(g.match||'').split(',')[0].trim();
     insertRosterEntry(entry);
+    autoQrzLookup(entry.callsign);
     addQni(pendingNewStation.callsign, '', pendingNewStation.destination || '', pendingNewStation.qtc || 0, pendingNewStation.extra);
     if(pendingNewStation.qtc) addQtc(pendingNewStation.qtc);
     saveData();
@@ -1995,7 +2023,7 @@ document.getElementById('nrExport').addEventListener('click', async ()=>{
   const safeName = (DATA.settings.netName || 'net').replace(/[^a-z0-9]+/gi,'-').toLowerCase().replace(/^-+|-+$/g,'');
   const daySuffix = weekday >= 0 ? '-' + WEEKDAY_FULL[weekday].toLowerCase() + 's' : '';
   const result = await saveFileWithLocation('export', `${safeName || 'net'}-net-report-${month}${daySuffix}.csv`, new Blob([csv], {type:'text/csv'}));
-  showSaveResult('Net Report exported', result);
+  showSaveResult('Net Report export', result);
 });
 
 function daysSinceCheckin(dateStr){
@@ -2184,8 +2212,8 @@ async function saveFileWithLocation(kind, filename, blob){
   return {saved:false, filename};
 }
 
-function showSaveResult(label, result){
-  const flash = document.getElementById('backupFlash');
+function showSaveResult(label, result, flashId){
+  const flash = document.getElementById(flashId || 'backupFlash');
   flash.classList.remove('bad');
   if(result.cancelled){ flash.textContent = `${label} cancelled.`; return; }
   if(result.error){ flash.textContent = `${label} failed: ${result.error}`; flash.classList.add('bad'); return; }
@@ -2258,10 +2286,10 @@ function csvEscape(val){
   return val;
 }
 document.getElementById('exportRosterBtn').addEventListener('click', async ()=>{
-  const header = ['Callsign','Name','Spouse','City','State','URL','Birthday','Anniversary','Last Check-in','Inactive',
+  const header = ['Callsign','Name','Last Name','Spouse','City','State','URL','Birthday','Anniversary','Last Check-in','Inactive',
                   'Area','Region','Phone','Email','Street','ZIP','Notes'];
   const rows = sortedRoster().map(r => [
-    r.callsign||'', r.name||'', r.spouse||'', r.city||'', r.state||'',
+    r.callsign||'', r.name||'', r.lastName||'', r.spouse||'', r.city||'', r.state||'',
     r.url||'', r.birthday||'', r.anniversary||'', r.lastCheckin||'', r.inactive ? 'Yes' : 'No',
     r.area||'', r.region||'', r.phone||'', r.email||'', r.street||'', r.zip||'', stationNote(r)
   ]);
@@ -2269,7 +2297,7 @@ document.getElementById('exportRosterBtn').addEventListener('click', async ()=>{
   const blob = new Blob([csv], {type:'text/csv'});
   const safeName = (DATA.settings.netName || 'roster').replace(/[^a-z0-9]+/gi,'-').toLowerCase().replace(/^-+|-+$/g,'');
   const result = await saveFileWithLocation('export', `${safeName || 'roster'}-${todayStr()}.csv`, blob);
-  showSaveResult('Roster exported', result);
+  showSaveResult('Roster export', result, 'csvImportFlash');
 });
 
 /* ---------- Backup / Restore ---------- */
@@ -2387,9 +2415,9 @@ const HEADER_ALIASES = {
   'street':'street','address':'street','streetaddress':'street',
   'zip':'zip','zipcode':'zip','postalcode':'zip','postcode':'zip',
   'notes':'notes','note':'notes',
-  // A roster with separate first/last name columns is combined into Name
+  // A roster with separate first/last name columns fills Name and Last Name
   'first':'firstName','firstname':'firstName','firstmi':'firstName',
-  'last':'lastName','lastname':'lastName'
+  'last':'lastName','lastname':'lastName','surname':'lastName'
 };
 function normalizeHeader(h){
   return (h||'').toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -2474,10 +2502,9 @@ function importRosterCSV(text){
     Object.entries(fieldMap).forEach(([idx,field])=>{ obj[field] = (cols[idx]||'').trim(); });
     if(!obj.callsign){ skipped++; continue; }
     obj.callsign = obj.callsign.toUpperCase();
-    if(obj.firstName !== undefined || obj.lastName !== undefined){
-      if(!obj.name) obj.name = [obj.firstName, obj.lastName].filter(Boolean).join(' ');
+    if(obj.firstName !== undefined){
+      if(!obj.name) obj.name = obj.firstName;
       delete obj.firstName;
-      delete obj.lastName;
     }
     // Spreadsheets often turn "5" into "5.0" and drop a ZIP's leading zero (06484 -> 6484)
     if(obj.region !== undefined) obj.region = obj.region.replace(/\.0+$/,'');
@@ -2499,7 +2526,7 @@ function importRosterCSV(text){
       updated++;
     } else {
       DATA.roster.push({
-        callsign: obj.callsign, name: obj.name||'', spouse: obj.spouse||'',
+        callsign: obj.callsign, name: obj.name||'', lastName: obj.lastName||'', spouse: obj.spouse||'',
         city: obj.city||'', state: obj.state||'', url: obj.url||'',
         birthday: obj.birthday||'', anniversary: obj.anniversary||'', lastCheckin: obj.lastCheckin||'',
         inactive: inactiveVal || false,
@@ -2542,8 +2569,182 @@ document.getElementById('csvImportInput').addEventListener('change', (e)=>{
 });
 
 /* ============================= SETTINGS TAB ============================= */
+/* ---------- QRZ.com login (desktop app only; kept by the Rust side, not in DATA) ---------- */
+function qrzFlash(text, bad){
+  const el = document.getElementById('qrzFlash');
+  el.textContent = text;
+  el.classList.toggle('bad', !!bad);
+}
+async function renderQrzLogin(){
+  const user = document.getElementById('qrzUser'), pass = document.getElementById('qrzPass');
+  const buttons = ['qrzSave','qrzTest','qrzClear'].map(id => document.getElementById(id));
+  if(!hamnetIsTauri()){
+    [user, pass, ...buttons].forEach(el => el.disabled = true);
+    qrzFlash('QRZ lookups are available in the desktop app.');
+    return;
+  }
+  try{
+    const st = await window.__TAURI__.core.invoke('qrz_status');
+    user.value = st.username || '';
+    pass.value = '';
+    pass.placeholder = st.hasPassword ? '(saved)' : '';
+    QRZ_HAS_LOGIN = !!(st.username && st.hasPassword);
+  }catch(e){ qrzFlash('Could not read the QRZ login: ' + e, true); }
+}
+document.getElementById('qrzSave').addEventListener('click', async ()=>{
+  const username = document.getElementById('qrzUser').value.trim().toUpperCase();
+  const password = document.getElementById('qrzPass').value;
+  if(!username){ qrzFlash('Enter your QRZ username.', true); return; }
+  try{
+    const st = await window.__TAURI__.core.invoke('qrz_save_credentials', {username, password: password || null});
+    await renderQrzLogin();
+    qrzFlash(st.hasPassword ? 'QRZ login saved.' : 'Username saved. Enter your password too.', !st.hasPassword);
+  }catch(e){ qrzFlash('Save failed: ' + e, true); }
+});
+document.getElementById('qrzTest').addEventListener('click', async ()=>{
+  qrzFlash('Signing in to QRZ…');
+  try{
+    const r = await window.__TAURI__.core.invoke('qrz_test_login');
+    if(!r.ok){ qrzFlash('QRZ login failed: ' + (r.error || r.message || 'no session returned'), true); return; }
+    if(!r.subExp || /non-subscriber/i.test(r.subExp)){
+      qrzFlash('Signed in, but this account has no XML Logbook Data subscription, so QRZ won\'t return photos.' + (r.message ? ' QRZ says: ' + r.message : ''), true);
+    } else {
+      qrzFlash('Signed in. XML subscription active until ' + r.subExp + '.');
+    }
+  }catch(e){ qrzFlash(String(e), true); }
+});
+document.getElementById('qrzClear').addEventListener('click', async ()=>{
+  if(!confirm('Remove the saved QRZ login from this computer?')) return;
+  try{
+    await window.__TAURI__.core.invoke('qrz_clear_credentials');
+    await renderQrzLogin();
+    qrzFlash('QRZ login removed.');
+  }catch(e){ qrzFlash('Clear failed: ' + e, true); }
+});
+
+/* ---------- QRZ lookups: station photos, and Name / Last Name when blank ---------- */
+let QRZ_PHOTOS_DIR = null;   // the desktop app's photos folder, set at startup
+let QRZ_HAS_LOGIN = false;
+function photoSrc(r){
+  if(!r || !r.photo || !QRZ_PHOTOS_DIR) return '';
+  const sep = QRZ_PHOTOS_DIR.includes('\\') ? '\\' : '/';
+  // ?v= makes a re-fetched photo show up instead of the cached old one
+  return window.__TAURI__.core.convertFileSrc(QRZ_PHOTOS_DIR + sep + r.photo) + '?v=' + (r.photoVer || 0);
+}
+function photoImgHtml(r, cls){
+  const src = photoSrc(r);
+  return `<img class="${cls}" data-photo-call="${escapeHtml(r.callsign||'')}" alt="" ${src ? `src="${escapeHtml(src)}"` : 'hidden'} onerror="this.hidden=true">`;
+}
+function updatePhotoEls(r){
+  const src = photoSrc(r);
+  document.querySelectorAll('img[data-photo-call]').forEach(img=>{
+    if(img.dataset.photoCall !== r.callsign || !src) return;
+    img.src = src;
+    img.hidden = false;
+  });
+}
+/* QRZ names often come in all caps from license data ("FRED L"): title-case those,
+   and drop trailing middle initials from the first name. */
+function qrzTitleCase(str){
+  str = (str || '').trim();
+  if(!str || str !== str.toUpperCase()) return str;
+  return str.toLowerCase().replace(/(^|[\s'\-])([a-z])/g, (m, pre, c) => pre + c.toUpperCase());
+}
+function qrzFirstName(res){
+  if(res.nickname) return qrzTitleCase(res.nickname);
+  const words = (res.firstName || '').trim().split(/\s+/).filter(Boolean);
+  while(words.length > 1 && /^[A-Za-z]\.?$/.test(words[words.length-1])) words.pop();
+  return qrzTitleCase(words.join(' '));
+}
+/* Applies a QRZ lookup to a roster entry. Only blank names are filled in. */
+function applyQrzResult(r, res){
+  const filled = [];
+  r.qrzLookedUp = todayStr();
+  if(res.status === 'saved'){ r.photo = res.file; r.photoVer = Date.now(); }
+  if(res.status !== 'notfound'){
+    const first = qrzFirstName(res), last = qrzTitleCase(res.lastName);
+    if(!(r.name||'').trim() && first){ r.name = first; filled.push('Name'); }
+    if(!(r.lastName||'').trim() && last){ r.lastName = last; filled.push('Last Name'); }
+  }
+  saveData();
+  updatePhotoEls(r);
+  if(filled.length){
+    // Update the visible roster card in place, so a lookup doesn't steal focus from another card
+    document.querySelectorAll('#rosterList .roster-entry').forEach(entry=>{
+      if(entry.querySelector('.r-callsign').value !== r.callsign) return;
+      entry.querySelector('.r-name').value = r.name || '';
+      entry.querySelector('.r-lastname').value = r.lastName || '';
+    });
+    const sortedNow = sortedRoster();
+    if(currentTab === 'main' && sortedNow[DATA.mainCursor] === r && document.activeElement.id !== 'mainNotes') renderMain(true);
+    renderCheckinsList();
+  }
+  return {status: res.status, filled};
+}
+async function qrzLookup(r){
+  const res = await window.__TAURI__.core.invoke('qrz_lookup', {callsign: r.callsign});
+  return applyQrzResult(r, res);
+}
+function describeQrzResult(call, out){
+  const names = out.filled.length ? ` ${out.filled.join(' and ')} filled in.` : '';
+  if(out.status === 'saved') return `${call}: photo saved.${names}`;
+  if(out.status === 'noimage') return `${call} has no photo on QRZ.${names}`;
+  return `${call} wasn't found on QRZ.`;
+}
+function qrzRosterFlash(text, bad){
+  const el = document.getElementById('qrzRosterFlash');
+  el.textContent = text;
+  el.classList.toggle('bad', !!bad);
+}
+/* For new stations: look them up in the background when a QRZ login is saved. */
+function autoQrzLookup(call){
+  if(!hamnetIsTauri() || !QRZ_HAS_LOGIN || !call) return;
+  const r = findRosterByCall(call);
+  if(!r) return;
+  qrzLookup(r).catch(e => console.warn('QRZ lookup for ' + call + ' failed:', e));
+}
+/* Fetch Missing: every station never looked up that lacks a photo, Name, or Last Name,
+   one at a time with a pause between, so as not to hammer QRZ. */
+let qrzBatchRunning = false, qrzBatchStop = false;
+document.getElementById('qrzFetchMissing').addEventListener('click', async ()=>{
+  const btn = document.getElementById('qrzFetchMissing');
+  if(qrzBatchRunning){ qrzBatchStop = true; btn.textContent = 'Stopping…'; return; }
+  if(!QRZ_HAS_LOGIN){ qrzRosterFlash('Save your QRZ login in Settings first.', true); return; }
+  let saved;
+  try{ saved = new Set(await window.__TAURI__.core.invoke('qrz_saved_photos')); }
+  catch(e){ qrzRosterFlash('Could not read the photos folder: ' + e, true); return; }
+  // Also redo stations whose photo file isn't on this computer (e.g. restored from another one's backup)
+  const todo = sortedRoster().filter(r => r.callsign && (
+    (r.photo && !saved.has(r.photo)) ||
+    (!r.qrzLookedUp && (!r.photo || !(r.name||'').trim() || !(r.lastName||'').trim()))));
+  if(!todo.length){ qrzRosterFlash('Every station has already been looked up. Use Get from QRZ on a card to refresh one.'); return; }
+  qrzBatchRunning = true; qrzBatchStop = false;
+  btn.textContent = 'Stop';
+  const tally = {saved:0, noimage:0, notfound:0, names:0};
+  let error = null, done = 0;
+  for(const r of todo){
+    if(qrzBatchStop) break;
+    qrzRosterFlash(`Looking up ${done+1} of ${todo.length}: ${r.callsign}…`);
+    try{
+      const out = await qrzLookup(r);
+      tally[out.status]++;
+      if(out.filled.length) tally.names++;
+    }catch(e){ error = String(e); break; }
+    done++;
+    if(done < todo.length) await new Promise(res => setTimeout(res, 1000));
+  }
+  qrzBatchRunning = false;
+  btn.textContent = 'Fetch Missing from QRZ';
+  const summary = `${tally.saved} photo(s) saved, ${tally.names} station(s) got names filled in, ` +
+    `${tally.noimage} had no photo, ${tally.notfound} not on QRZ.`;
+  if(error) qrzRosterFlash(`Stopped after ${done} of ${todo.length}: ${error} So far: ${summary}`, true);
+  else if(qrzBatchStop) qrzRosterFlash(`Stopped after ${done} of ${todo.length}. ${summary}`);
+  else qrzRosterFlash(`Done, ${done} looked up: ${summary}`);
+});
+
 function renderSettings(){
   renderFileLocations();
+  renderQrzLogin();
   const sel = document.getElementById('setActiveNet');
   sel.innerHTML = Object.entries(STORE.nets)
     .map(([id,net]) => `<option value="${id}">${escapeHtml(net.settings.netName || '(unnamed net)')}</option>`)
@@ -2674,6 +2875,7 @@ function rosterEntryHtml(r, idx){
       <div class="roster-line">
         <div class="roster-field callsign"><label>Callsign</label><input type="text" class="r-callsign callsign-input" value="${escapeHtml(r.callsign||'')}"></div>
         <div class="roster-field"><label>Name</label><input type="text" class="r-name" value="${escapeHtml(r.name||'')}"></div>
+        <div class="roster-field"><label>Last Name</label><input type="text" class="r-lastname" value="${escapeHtml(r.lastName||'')}"></div>
         <div class="roster-field"><label>Spouse</label><input type="text" class="r-spouse" value="${escapeHtml(r.spouse||'')}"></div>
         <div class="roster-field"><label>City</label><input type="text" class="r-city" value="${escapeHtml(r.city||'')}"></div>
         <div class="roster-field narrow"><label>State</label><input type="text" class="r-state" value="${escapeHtml(r.state||'')}"></div>
@@ -2696,6 +2898,10 @@ function rosterEntryHtml(r, idx){
         <div class="roster-field"><label>Email</label><input type="text" class="r-email" value="${escapeHtml(r.email||'')}"></div>
         <div class="roster-field"><label>Street</label><input type="text" class="r-street" value="${escapeHtml(r.street||'')}"></div>
         <div class="roster-field narrow"><label>ZIP</label><input type="text" class="r-zip" value="${escapeHtml(r.zip||'')}"></div>
+        ${hamnetIsTauri() ? `<div class="roster-field narrow" style="flex:0 0 auto;">
+          <label>QRZ</label>${photoImgHtml(r, 'roster-photo')}
+          <button class="secondary r-qrz" title="Look this station up on QRZ.com: photo, and Name / Last Name if blank">Get from QRZ</button>
+        </div>` : ''}
       </div>
     </div>
   `;
@@ -2710,8 +2916,12 @@ function renderRosterTable(){
     const r = list[idx];
     entry.querySelectorAll('input').forEach(inp=>{
       inp.addEventListener('change', ()=>{
+        const oldCall = r.callsign;
         r.callsign = entry.querySelector('.r-callsign').value.toUpperCase().trim();
+        const callChanged = r.callsign && r.callsign !== oldCall;
+        if(callChanged){ delete r.photo; delete r.qrzLookedUp; }
         r.name = entry.querySelector('.r-name').value;
+        r.lastName = entry.querySelector('.r-lastname').value;
         r.spouse = entry.querySelector('.r-spouse').value;
         r.city = entry.querySelector('.r-city').value;
         r.state = entry.querySelector('.r-state').value;
@@ -2728,7 +2938,17 @@ function renderRosterTable(){
         r.zip = entry.querySelector('.r-zip').value.trim();
         saveData();
         renderRosterTable();
+        if(callChanged) autoQrzLookup(r.callsign);
       });
+    });
+    const qrzBtn = entry.querySelector('.r-qrz');
+    if(qrzBtn) qrzBtn.addEventListener('click', async ()=>{
+      if(!r.callsign) return;
+      qrzBtn.disabled = true;
+      qrzRosterFlash(`Looking up ${r.callsign} on QRZ…`);
+      try{ qrzRosterFlash(describeQrzResult(r.callsign, await qrzLookup(r))); }
+      catch(e){ qrzRosterFlash(String(e), true); }
+      qrzBtn.disabled = false;
     });
     entry.querySelector('.del-btn').addEventListener('click', ()=>{
       const target = list[idx];
@@ -2756,6 +2976,18 @@ applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
 applyIdTimerVisibility();
 applyNetTypeUI();
 showTab('preamble');
+if(hamnetIsTauri()){
+  document.querySelectorAll('.qrz-only').forEach(el => el.style.display = '');
+  Promise.all([
+    window.__TAURI__.core.invoke('qrz_photos_dir'),
+    window.__TAURI__.core.invoke('qrz_status')
+  ]).then(([dir, st])=>{
+    QRZ_PHOTOS_DIR = dir;
+    QRZ_HAS_LOGIN = !!(st.username && st.hasPassword);
+    if(currentTab === 'main') renderMain(true);
+    if(currentTab === 'roster') renderRosterTable();
+  }).catch(e => console.warn('QRZ setup failed:', e));
+}
 </script>
 </body>
 </html>
