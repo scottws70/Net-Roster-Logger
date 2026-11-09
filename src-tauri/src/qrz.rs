@@ -56,6 +56,7 @@ pub struct LookupResult {
     city: Option<String>,
     state: Option<String>,
     zip: Option<String>,
+    email: Option<String>,
 }
 
 fn credentials_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -176,7 +177,7 @@ fn image_ext(url: &str, content_type: &str) -> &'static str {
     }
 }
 
-fn lookup_blocking(app: &AppHandle, callsign: &str) -> Result<LookupResult, String> {
+fn lookup_blocking(app: &AppHandle, callsign: &str, refresh_photo: bool) -> Result<LookupResult, String> {
     let xml = lookup_xml(app, callsign)?;
     let mut result = LookupResult {
         status: "notfound".into(),
@@ -188,6 +189,7 @@ fn lookup_blocking(app: &AppHandle, callsign: &str) -> Result<LookupResult, Stri
         city: xml_tag(&xml, "addr2"),
         state: xml_tag(&xml, "state"),
         zip: xml_tag(&xml, "zip"),
+        email: xml_tag(&xml, "email"),
     };
     if xml_tag(&xml, "Callsign").is_none() {
         let err = xml_tag(&xml, "Error").unwrap_or_default();
@@ -201,6 +203,20 @@ fn lookup_blocking(app: &AppHandle, callsign: &str) -> Result<LookupResult, Stri
         return Ok(result);
     };
 
+    let dir = photos_dir(app)?;
+    if !refresh_photo {
+        // Reuse a photo already saved for this callsign rather than downloading it again
+        let existing = ["jpg", "png", "gif", "webp"]
+            .iter()
+            .map(|ext| photo_file_name(callsign, ext))
+            .find(|f| dir.join(f).is_file());
+        if let Some(file) = existing {
+            result.status = "saved".into();
+            result.file = Some(file);
+            return Ok(result);
+        }
+    }
+
     let resp = ureq::get(&url).call().map_err(|e| format!("Couldn't download the photo: {}", e))?;
     let ext = image_ext(&url, resp.content_type());
     let mut bytes = Vec::new();
@@ -210,7 +226,6 @@ fn lookup_blocking(app: &AppHandle, callsign: &str) -> Result<LookupResult, Stri
         .read_to_end(&mut bytes)
         .map_err(|e| e.to_string())?;
 
-    let dir = photos_dir(app)?;
     // Drop any earlier photo for this callsign saved under another extension
     for old in ["jpg", "png", "gif", "webp"] {
         let _ = fs::remove_file(dir.join(photo_file_name(callsign, old)));
@@ -238,14 +253,17 @@ pub fn qrz_saved_photos(app: AppHandle) -> Result<Vec<String>, String> {
         .collect())
 }
 
-/// Looks a station up on QRZ, saves its primary photo if it has one, and returns its names.
+/// Looks a station up on QRZ, saves its primary photo if it has one, and returns its
+/// name, address, and email. Unless `refresh_photo` is set, a photo already saved for
+/// the callsign is reused instead of downloaded again.
 #[tauri::command]
-pub async fn qrz_lookup(app: AppHandle, callsign: String) -> Result<LookupResult, String> {
+pub async fn qrz_lookup(app: AppHandle, callsign: String, refresh_photo: Option<bool>) -> Result<LookupResult, String> {
+    let refresh_photo = refresh_photo.unwrap_or(true);
     let callsign = callsign.trim().to_uppercase();
     if callsign.is_empty() {
         return Err("No callsign given.".into());
     }
-    tauri::async_runtime::spawn_blocking(move || lookup_blocking(&app, &callsign))
+    tauri::async_runtime::spawn_blocking(move || lookup_blocking(&app, &callsign, refresh_photo))
         .await
         .map_err(|e| e.to_string())?
 }

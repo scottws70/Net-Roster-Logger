@@ -70,11 +70,11 @@ For stations that check in before or outside the normal roll call. Fields: Calls
 - **Callsign** accepts the full callsign (`W1AW`) or just the suffix (`AW`), as long as that suffix matches exactly one station on the Roster. If it matches more than one, you'll be asked to type the full callsign instead.
 - **Name lookup:** if you don't have the callsign handy, leave Callsign blank, type the station's **Name**, **Last Name**, or both (`Mark`, `Smith`, or `Mark Smith`), and press **Enter**. If exactly one station on the Roster matches, it's checked in. If several do, you'll see their callsigns and be asked to type the callsign instead. Each name must match the whole field (capitalization doesn't matter) — `Mar` won't find "Mark".
 - A **known** callsign is checked in immediately.
-- An **unknown** callsign prompts “Add to Roster?” — choosing Yes adds it using the Name/City/State you typed and checks it in; No just clears the fields. If it's a new station, and they want to be added to the roster, click "No" first, then re-enter the call, get the name, city, state, press enter, and answer Yes to "Add to Roster?" With a [QRZ login](#qrzcom-login) saved, the new station's QRZ photo is fetched in the background, and any name or address fields you left blank are filled in from QRZ.
+- An **unknown** callsign prompts “Add to Roster?” — choosing Yes adds it using the Name/City/State you typed and checks it in; No just clears the fields. If it's a new station, and they want to be added to the roster, click "No" first, then re-enter the call, get the name, city, state, press enter, and answer Yes to "Add to Roster?" With a [QRZ login](#qrzcom-login) saved, the new station's QRZ photo is fetched in the background, and its name, email, and address are filled in from QRZ as described under [QRZ Photos, Names, Addresses, and Email](#qrz-photos-names-addresses-and-email).
 
 ## Main Tab (Roll Call)
 
-Main shows one station at a time from the Roster, sorted by callsign suffix (the letters after the number — W1AW sorts under "AW"). Its card shows Name, Last Name, Spouse, City, State, Birthday, Anniversary, Last Check-in, a Notes field, and an Inactive checkbox. If the station has a [QRZ photo](#qrz-photos-and-names), it's shown at the top right of the card.
+Main shows one station at a time from the Roster, sorted by callsign suffix (the letters after the number — W1AW sorts under "AW"). Its card shows Name, Last Name, Spouse, City, State, Birthday, Anniversary, Last Check-in, a Notes field, and an Inactive checkbox. If the station has a [QRZ photo](#qrz-photos-names-addresses-and-email), it's shown at the top right of the card.
 
 **Keyboard shortcuts** (These work as soon as you're on the Main tab, as long as you haven't clicked into the Notes field):
 
@@ -149,7 +149,7 @@ Choose a folder for Backups and a folder for Roster exports, so they save automa
 
 ### QRZ.com Login
 
-Your QRZ.com username and password, used to look stations up on QRZ for their photos and names (see [QRZ Photos and Names](#qrz-photos-and-names)). Photos need an active QRZ **XML Logbook Data** subscription; a free QRZ account can sign in but gets only limited data back.
+Your QRZ.com username and password, used to look stations up on QRZ for their photos and names (see [QRZ Photos and Names](#qrz-photos-names-addresses-and-email)). Photos need an active QRZ **XML Logbook Data** subscription; a free QRZ account can sign in but gets only limited data back.
 
 - **Save** stores the login. To change just the username, leave Password blank and the saved password is kept.
 - **Test Login** signs in to QRZ and tells you whether the account's XML subscription is active, and until when.
@@ -173,12 +173,13 @@ A third line holds Area, Region, Phone, Email, Street, and ZIP. Area and Region 
 
 **Export Roster CSV**, next to Import, saves the current Roster with every field above, in the same format Import accepts, so it round-trips cleanly.
 
-### QRZ Photos and Names
+### QRZ Photos, Names, Addresses, and Email
 
 With a [QRZ login](#qrzcom-login) saved (installed app only), the app can look stations up on QRZ.com:
 
-- **Get from QRZ** on a station's card looks that one station up. It downloads the station's QRZ photo and shows it on the card and on the Main roll-call card, and fills in **Name**, **Last Name**, and the address (**Street**, **City**, **State**, **ZIP**) where they're blank. Nothing you've typed is ever overwritten, and if a station's own street or city differs from QRZ's, its address is left alone entirely so the two never get mixed. QRZ's nickname is used for Name when the station has one, middle initials are dropped, and all-caps license names and addresses are tidied up (`HIRAM P` → `Hiram`, `225 MAIN ST` → `225 Main St`).
-- **Fetch Missing from QRZ** looks up every station that hasn't been looked up yet (stations looked up before v1.33.1, when addresses were added, count as not yet) and is missing a photo, a name, or part of its address, one at a time with a short pause between, so QRZ isn't flooded. It shows its progress and a summary at the end; click **Stop** to end it early. A station QRZ has no photo for isn't asked about again; use **Get from QRZ** on its card to retry.
+- **Get from QRZ** on a station's card looks that one station up. It downloads a fresh copy of the station's QRZ photo and shows it on the card and on the Main roll-call card, and fills in **Name**, **Last Name**, **Email**, and the address where they're blank. Names and email you've typed are never overwritten. QRZ's nickname is used for Name when the station has one, middle initials are dropped, and all-caps license names and addresses are tidied up (`HIRAM P` → `Hiram`, `RR 1 BOX 5` → `RR 1 Box 5`, `MCCOOK` → `McCook`).
+- **Addresses:** a station with **no Street** on file gets QRZ's whole mailing address (Street, City, State, ZIP). If the City or State you had typed was different — often an informal one like "N of McCook" or "NE City" — it's kept in the station's [Notes](#main-tab-roll-call) as `Listed as: N of McCook, NE`. Spelling differences in spacing or punctuation don't count ("Springhill" and "Spring Hill" are the same). A station that already has a Street keeps its address; only its blank parts are filled, and only when its street and city match QRZ's.
+- **Fetch Missing from QRZ** looks up every station that hasn't been looked up yet (stations looked up by an earlier version of the app that filled in fewer fields count as not yet) and is missing a photo, a name, an email, or part of its address, one at a time with a short pause between, so QRZ isn't flooded. It shows its progress and a summary at the end; click **Stop** to end it early. It reuses photos already saved rather than downloading them again. A station QRZ has no photo for isn't asked about again; use **Get from QRZ** on its card to retry. Each net has its own Roster, so run it once in each net.
 - **New stations are looked up automatically:** when you answer Yes to “Add to Roster?” from Early Check-ins, the Out of Sequence box, or End of the List, or type a callsign into a station card.
 
 Photos are downloaded once and saved on this computer, so they show during nets with no internet connection. They aren't included in Backups or roster CSV exports; after restoring a backup on another computer, Fetch Missing from QRZ downloads them again.

@@ -2661,7 +2661,13 @@ function updatePhotoEls(r){
 function qrzTitleCase(str){
   str = (str || '').trim();
   if(!str || str !== str.toUpperCase()) return str;
-  return str.toLowerCase().replace(/(^|[\s'\-])([a-z])/g, (m, pre, c) => pre + c.toUpperCase());
+  return str.toLowerCase()
+    .replace(/(^|[\s'\-])([a-z])/g, (m, pre, c) => pre + c.toUpperCase())
+    .replace(/\bMc([a-z])/g, (m, c) => 'Mc' + c.toUpperCase());          // McCook, McDonald
+}
+/* Street addresses also keep box and direction abbreviations in capitals: "RR 1 Box 5", "123 NE Elm". */
+function qrzStreetCase(str){
+  return qrzTitleCase(str).replace(/\b(Rr|Po|Hc|Ne|Nw|Se|Sw)\b/g, m => m.toUpperCase());
 }
 function qrzFirstName(res){
   if(res.nickname) return qrzTitleCase(res.nickname);
@@ -2670,7 +2676,13 @@ function qrzFirstName(res){
   return qrzTitleCase(words.join(' '));
 }
 /* Bump when a lookup starts filling more fields, so Fetch Missing revisits older lookups once. */
-const QRZ_LOOKUP_VERSION = 2;   // 1: photo and names; 2: adds the address
+const QRZ_LOOKUP_VERSION = 3;   // 1: photo and names; 2: adds the address; 3: adds email, full address when no street
+const QRZ_FIELDS = ['name','lastName','street','city','state','zip','email'];
+/* "Spring Hill" and "SPRINGHILL" are the same city */
+function sameCity(a, b){
+  const norm = v => (v||'').toLowerCase().replace(/[^a-z]/g, '');
+  return norm(a) === norm(b);
+}
 /* Applies a QRZ lookup to a roster entry. Only blank fields are filled in. */
 function applyQrzResult(r, res){
   const filled = [];
@@ -2681,18 +2693,34 @@ function applyQrzResult(r, res){
     const first = qrzFirstName(res), last = qrzTitleCase(res.lastName);
     if(!(r.name||'').trim() && first){ r.name = first; filled.push('Name'); }
     if(!(r.lastName||'').trim() && last){ r.lastName = last; filled.push('Last Name'); }
-    const addr = {street: qrzTitleCase(res.street), city: qrzTitleCase(res.city),
+    const addr = {street: qrzStreetCase(res.street), city: qrzTitleCase(res.city),
                   state: (res.state||'').trim().toUpperCase(), zip: (res.zip||'').trim()};
-    // A station whose own street or city differs from QRZ's keeps its whole address,
-    // so a typed-in address is never mixed with parts of QRZ's
-    const differs = k => (r[k]||'').trim() && (r[k]||'').trim().toLowerCase() !== addr[k].toLowerCase();
     let addrFilled = false;
-    if(!differs('street') && !differs('city')){
-      Object.entries(addr).forEach(([k, v])=>{
-        if(v && !(r[k]||'').trim()){ r[k] = v; addrFilled = true; }
-      });
+    if(!(r.street||'').trim() && addr.street){
+      // No street on file: take QRZ's whole mailing address. A typed-in city or state that
+      // differs (often informal, like "N of McCook") is kept in the station's Notes.
+      const oldCity = (r.city||'').trim(), oldState = (r.state||'').trim();
+      const cityDiffers = oldCity && !sameCity(oldCity, addr.city);
+      const stateDiffers = oldState && addr.state && oldState.toUpperCase() !== addr.state;
+      if(cityDiffers || stateDiffers){
+        const listed = 'Listed as: ' + [oldCity, oldState].filter(Boolean).join(', ');
+        const note = stationNote(r);
+        if(!note.includes(listed)) r.notes = note ? note + ' · ' + listed : listed;
+      }
+      Object.entries(addr).forEach(([k, v])=>{ if(v) r[k] = v; });
+      addrFilled = true;
+    } else if(sameCity(r.street, addr.street) || !(r.street||'').trim()){
+      // Street on file matches QRZ's (or neither has one): fill only blank parts, and only
+      // if the city agrees too, so a typed address is never mixed with parts of QRZ's
+      if(!(r.city||'').trim() || sameCity(r.city, addr.city)){
+        Object.entries(addr).forEach(([k, v])=>{
+          if(v && !(r[k]||'').trim()){ r[k] = v; addrFilled = true; }
+        });
+      }
     }
     if(addrFilled) filled.push('address');
+    const email = (res.email||'').trim().toLowerCase();
+    if(email && !(r.email||'').trim()){ r.email = email; filled.push('email'); }
   }
   saveData();
   updatePhotoEls(r);
@@ -2700,7 +2728,7 @@ function applyQrzResult(r, res){
     // Update the visible roster card in place, so a lookup doesn't steal focus from another card
     document.querySelectorAll('#rosterList .roster-entry').forEach(entry=>{
       if(entry.querySelector('.r-callsign').value !== r.callsign) return;
-      ['name','lastName','street','city','state','zip'].forEach(k=>{
+      QRZ_FIELDS.forEach(k=>{
         entry.querySelector('.r-' + k.toLowerCase()).value = r[k] || '';
       });
     });
@@ -2710,8 +2738,9 @@ function applyQrzResult(r, res){
   }
   return {status: res.status, filled};
 }
-async function qrzLookup(r){
-  const res = await window.__TAURI__.core.invoke('qrz_lookup', {callsign: r.callsign});
+/* refreshPhoto: download the photo even if one is already saved (Get from QRZ on a card). */
+async function qrzLookup(r, refreshPhoto){
+  const res = await window.__TAURI__.core.invoke('qrz_lookup', {callsign: r.callsign, refreshPhoto: !!refreshPhoto});
   return applyQrzResult(r, res);
 }
 function describeQrzResult(call, out){
@@ -2735,7 +2764,7 @@ function autoQrzLookup(call){
   qrzLookup(r).catch(e => console.warn('QRZ lookup for ' + call + ' failed:', e));
 }
 /* Fetch Missing: every station not yet looked up (or looked up before the lookup filled
-   as much as it does now) that lacks a photo, a name, or part of its address,
+   as much as it does now) that lacks a photo, a name, email, or part of its address,
    one at a time with a pause between, so as not to hammer QRZ. */
 let qrzBatchRunning = false, qrzBatchStop = false;
 document.getElementById('qrzFetchMissing').addEventListener('click', async ()=>{
@@ -2749,7 +2778,7 @@ document.getElementById('qrzFetchMissing').addEventListener('click', async ()=>{
   const todo = sortedRoster().filter(r => r.callsign && (
     (r.photo && !saved.has(r.photo)) ||
     ((r.qrzVer || (r.qrzLookedUp ? 1 : 0)) < QRZ_LOOKUP_VERSION &&
-      (!r.photo || ['name','lastName','street','city','state','zip'].some(k => !(r[k]||'').trim())))));
+      (!r.photo || QRZ_FIELDS.some(k => !(r[k]||'').trim())))));
   if(!todo.length){ qrzRosterFlash('Every station has already been looked up. Use Get from QRZ on a card to refresh one.'); return; }
   qrzBatchRunning = true; qrzBatchStop = false;
   btn.textContent = 'Stop';
@@ -2768,7 +2797,7 @@ document.getElementById('qrzFetchMissing').addEventListener('click', async ()=>{
   }
   qrzBatchRunning = false;
   btn.textContent = 'Fetch Missing from QRZ';
-  const summary = `${tally.saved} photo(s) saved, ${tally.names} station(s) got names or addresses filled in, ` +
+  const summary = `${tally.saved} photo(s) saved, ${tally.names} station(s) got names, addresses, or emails filled in, ` +
     `${tally.noimage} had no photo, ${tally.notfound} not on QRZ.`;
   if(error) qrzRosterFlash(`Stopped after ${done} of ${todo.length}: ${error} So far: ${summary}`, true);
   else if(qrzBatchStop) qrzRosterFlash(`Stopped after ${done} of ${todo.length}. ${summary}`);
@@ -2933,7 +2962,7 @@ function rosterEntryHtml(r, idx){
         <div class="roster-field narrow"><label>ZIP</label><input type="text" class="r-zip" value="${escapeHtml(r.zip||'')}"></div>
         ${hamnetIsTauri() ? `<div class="roster-field narrow" style="flex:0 0 auto;">
           <label>QRZ</label>${photoImgHtml(r, 'roster-photo')}
-          <button class="secondary r-qrz" title="Look this station up on QRZ.com: photo, plus name and address where blank">Get from QRZ</button>
+          <button class="secondary r-qrz" title="Look this station up on QRZ.com: fresh photo, plus name, address, and email where blank">Get from QRZ</button>
         </div>` : ''}
       </div>
     </div>
@@ -2979,7 +3008,7 @@ function renderRosterTable(){
       if(!r.callsign) return;
       qrzBtn.disabled = true;
       qrzRosterFlash(`Looking up ${r.callsign} on QRZ…`);
-      try{ qrzRosterFlash(describeQrzResult(r.callsign, await qrzLookup(r))); }
+      try{ qrzRosterFlash(describeQrzResult(r.callsign, await qrzLookup(r, true))); }
       catch(e){ qrzRosterFlash(String(e), true); }
       qrzBtn.disabled = false;
     });
