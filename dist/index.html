@@ -2054,11 +2054,14 @@ function showStaleReport(thresholdDays){
   if(stale.length === 0){
     body.innerHTML = '<p class="empty-msg">No stations exceed that threshold.</p>';
   } else {
-    let html = `<div style="margin-bottom:10px;"><button class="secondary" id="staleRemoveAll" style="color:var(--bad);border-color:var(--bad);">Remove All Listed (${stale.length}) from Roster</button></div>`;
+    const activeCount = stale.filter(({r}) => !r.inactive).length;
+    let html = `<div class="row" style="margin-bottom:10px;">` +
+      (activeCount ? `<button class="secondary" id="staleInactiveAll">Mark All Listed Inactive (${activeCount})</button>` : '') +
+      `<button class="secondary" id="staleRemoveAll" style="color:var(--bad);border-color:var(--bad);">Remove All Listed (${stale.length}) from Roster</button></div>`;
     html += '<table><thead><tr><th>Callsign</th><th>Name</th><th>City / State</th><th>Last Check-in</th><th>Days Since</th><th></th></tr></thead><tbody>';
     stale.forEach(({r,days})=>{
       html += `<tr>
-        <td>${escapeHtml(r.callsign)}</td>
+        <td>${escapeHtml(r.callsign)}${r.inactive ? ' <span style="color:var(--text-dim);font-size:12px;">(inactive)</span>' : ''}</td>
         <td>${escapeHtml(r.name||'')}</td>
         <td>${escapeHtml([r.city,r.state].filter(Boolean).join(', '))}</td>
         <td>${escapeHtml(r.lastCheckin || 'never')}</td>
@@ -2077,6 +2080,16 @@ function showStaleReport(thresholdDays){
         }
       });
     });
+    const inactiveAllBtn = document.getElementById('staleInactiveAll');
+    if(inactiveAllBtn){
+      inactiveAllBtn.addEventListener('click', ()=>{
+        if(confirm(`Mark ${activeCount} listed station(s) Inactive? They'll be hidden from the Main roll call until they check in again.`)){
+          stale.forEach(({r}) => { r.inactive = true; });
+          saveData();
+          showStaleReport(thresholdDays);
+        }
+      });
+    }
     const removeAllBtn = document.getElementById('staleRemoveAll');
     if(removeAllBtn){
       removeAllBtn.addEventListener('click', ()=>{
@@ -2656,15 +2669,30 @@ function qrzFirstName(res){
   while(words.length > 1 && /^[A-Za-z]\.?$/.test(words[words.length-1])) words.pop();
   return qrzTitleCase(words.join(' '));
 }
-/* Applies a QRZ lookup to a roster entry. Only blank names are filled in. */
+/* Bump when a lookup starts filling more fields, so Fetch Missing revisits older lookups once. */
+const QRZ_LOOKUP_VERSION = 2;   // 1: photo and names; 2: adds the address
+/* Applies a QRZ lookup to a roster entry. Only blank fields are filled in. */
 function applyQrzResult(r, res){
   const filled = [];
   r.qrzLookedUp = todayStr();
+  r.qrzVer = QRZ_LOOKUP_VERSION;
   if(res.status === 'saved'){ r.photo = res.file; r.photoVer = Date.now(); }
   if(res.status !== 'notfound'){
     const first = qrzFirstName(res), last = qrzTitleCase(res.lastName);
     if(!(r.name||'').trim() && first){ r.name = first; filled.push('Name'); }
     if(!(r.lastName||'').trim() && last){ r.lastName = last; filled.push('Last Name'); }
+    const addr = {street: qrzTitleCase(res.street), city: qrzTitleCase(res.city),
+                  state: (res.state||'').trim().toUpperCase(), zip: (res.zip||'').trim()};
+    // A station whose own street or city differs from QRZ's keeps its whole address,
+    // so a typed-in address is never mixed with parts of QRZ's
+    const differs = k => (r[k]||'').trim() && (r[k]||'').trim().toLowerCase() !== addr[k].toLowerCase();
+    let addrFilled = false;
+    if(!differs('street') && !differs('city')){
+      Object.entries(addr).forEach(([k, v])=>{
+        if(v && !(r[k]||'').trim()){ r[k] = v; addrFilled = true; }
+      });
+    }
+    if(addrFilled) filled.push('address');
   }
   saveData();
   updatePhotoEls(r);
@@ -2672,8 +2700,9 @@ function applyQrzResult(r, res){
     // Update the visible roster card in place, so a lookup doesn't steal focus from another card
     document.querySelectorAll('#rosterList .roster-entry').forEach(entry=>{
       if(entry.querySelector('.r-callsign').value !== r.callsign) return;
-      entry.querySelector('.r-name').value = r.name || '';
-      entry.querySelector('.r-lastname').value = r.lastName || '';
+      ['name','lastName','street','city','state','zip'].forEach(k=>{
+        entry.querySelector('.r-' + k.toLowerCase()).value = r[k] || '';
+      });
     });
     const sortedNow = sortedRoster();
     if(currentTab === 'main' && sortedNow[DATA.mainCursor] === r && document.activeElement.id !== 'mainNotes') renderMain(true);
@@ -2686,7 +2715,9 @@ async function qrzLookup(r){
   return applyQrzResult(r, res);
 }
 function describeQrzResult(call, out){
-  const names = out.filled.length ? ` ${out.filled.join(' and ')} filled in.` : '';
+  const f = out.filled;
+  const list = f.length > 1 ? f.slice(0,-1).join(', ') + ' and ' + f[f.length-1] : f[0];
+  const names = f.length ? ` ${list.charAt(0).toUpperCase() + list.slice(1)} filled in.` : '';
   if(out.status === 'saved') return `${call}: photo saved.${names}`;
   if(out.status === 'noimage') return `${call} has no photo on QRZ.${names}`;
   return `${call} wasn't found on QRZ.`;
@@ -2703,7 +2734,8 @@ function autoQrzLookup(call){
   if(!r) return;
   qrzLookup(r).catch(e => console.warn('QRZ lookup for ' + call + ' failed:', e));
 }
-/* Fetch Missing: every station never looked up that lacks a photo, Name, or Last Name,
+/* Fetch Missing: every station not yet looked up (or looked up before the lookup filled
+   as much as it does now) that lacks a photo, a name, or part of its address,
    one at a time with a pause between, so as not to hammer QRZ. */
 let qrzBatchRunning = false, qrzBatchStop = false;
 document.getElementById('qrzFetchMissing').addEventListener('click', async ()=>{
@@ -2716,7 +2748,8 @@ document.getElementById('qrzFetchMissing').addEventListener('click', async ()=>{
   // Also redo stations whose photo file isn't on this computer (e.g. restored from another one's backup)
   const todo = sortedRoster().filter(r => r.callsign && (
     (r.photo && !saved.has(r.photo)) ||
-    (!r.qrzLookedUp && (!r.photo || !(r.name||'').trim() || !(r.lastName||'').trim()))));
+    ((r.qrzVer || (r.qrzLookedUp ? 1 : 0)) < QRZ_LOOKUP_VERSION &&
+      (!r.photo || ['name','lastName','street','city','state','zip'].some(k => !(r[k]||'').trim())))));
   if(!todo.length){ qrzRosterFlash('Every station has already been looked up. Use Get from QRZ on a card to refresh one.'); return; }
   qrzBatchRunning = true; qrzBatchStop = false;
   btn.textContent = 'Stop';
@@ -2735,7 +2768,7 @@ document.getElementById('qrzFetchMissing').addEventListener('click', async ()=>{
   }
   qrzBatchRunning = false;
   btn.textContent = 'Fetch Missing from QRZ';
-  const summary = `${tally.saved} photo(s) saved, ${tally.names} station(s) got names filled in, ` +
+  const summary = `${tally.saved} photo(s) saved, ${tally.names} station(s) got names or addresses filled in, ` +
     `${tally.noimage} had no photo, ${tally.notfound} not on QRZ.`;
   if(error) qrzRosterFlash(`Stopped after ${done} of ${todo.length}: ${error} So far: ${summary}`, true);
   else if(qrzBatchStop) qrzRosterFlash(`Stopped after ${done} of ${todo.length}. ${summary}`);
@@ -2900,7 +2933,7 @@ function rosterEntryHtml(r, idx){
         <div class="roster-field narrow"><label>ZIP</label><input type="text" class="r-zip" value="${escapeHtml(r.zip||'')}"></div>
         ${hamnetIsTauri() ? `<div class="roster-field narrow" style="flex:0 0 auto;">
           <label>QRZ</label>${photoImgHtml(r, 'roster-photo')}
-          <button class="secondary r-qrz" title="Look this station up on QRZ.com: photo, and Name / Last Name if blank">Get from QRZ</button>
+          <button class="secondary r-qrz" title="Look this station up on QRZ.com: photo, plus name and address where blank">Get from QRZ</button>
         </div>` : ''}
       </div>
     </div>

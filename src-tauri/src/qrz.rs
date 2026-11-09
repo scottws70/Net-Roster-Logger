@@ -51,6 +51,11 @@ pub struct LookupResult {
     first_name: Option<String>,
     last_name: Option<String>,
     nickname: Option<String>,
+    /// Mailing address: street (addr1), city (addr2), state (USA only), ZIP
+    street: Option<String>,
+    city: Option<String>,
+    state: Option<String>,
+    zip: Option<String>,
 }
 
 fn credentials_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -179,6 +184,10 @@ fn lookup_blocking(app: &AppHandle, callsign: &str) -> Result<LookupResult, Stri
         first_name: xml_tag(&xml, "fname"),
         last_name: xml_tag(&xml, "name"),
         nickname: xml_tag(&xml, "nickname"),
+        street: xml_tag(&xml, "addr1"),
+        city: xml_tag(&xml, "addr2"),
+        state: xml_tag(&xml, "state"),
+        zip: xml_tag(&xml, "zip"),
     };
     if xml_tag(&xml, "Callsign").is_none() {
         let err = xml_tag(&xml, "Error").unwrap_or_default();
