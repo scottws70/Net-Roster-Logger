@@ -1,6 +1,6 @@
 [package]
 name = "N8VCL-Net-Logger"
-version = "1.33.1"
+version = "1.33.2"
 description = "Net roster and check-in logger for ham radio net control"
 authors = ["N8VCL"]
 license = ""
