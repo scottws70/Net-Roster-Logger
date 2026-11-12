@@ -65,7 +65,7 @@ Fill in a row, then press **Enter** or **Tab** out of it to open a new blank row
 
 ## Early Check-ins Tab
 
-For stations that check in before or outside the normal roll call. Fields: Callsign, Name, City, State.
+For stations that check in before or outside the normal roll call. At the top is the call to read on the air: **"Any Mobiles, Portables, or Low Power stations?"** Fields: Callsign, Name, City, State.
 
 - **Callsign** accepts the full callsign (`W1AW`) or just the suffix (`AW`), as long as that suffix matches exactly one station on the Roster. If it matches more than one, you'll be asked to type the full callsign instead.
 - **Name lookup:** if you don't have the callsign handy, leave Callsign blank, type the station's **Name**, **Last Name**, or both (`Mark`, `Smith`, or `Mark Smith`), and press **Enter**. If exactly one station on the Roster matches, it's checked in. If several do, you'll see their callsigns and be asked to type the callsign instead. Each name must match the whole field (capitalization doesn't matter) — `Mar` won't find "Mark".
@@ -74,9 +74,9 @@ For stations that check in before or outside the normal roll call. Fields: Calls
 
 ## Main Tab (Roll Call)
 
-Main shows one station at a time from the Roster, sorted by callsign suffix (the letters after the number — W1AW sorts under "AW"). Its card shows Name, Last Name, Spouse, City, State, Birthday, Anniversary, Last Check-in, a Notes field, and an Inactive checkbox. If the station has a [QRZ photo](#qrz-photos-names-addresses-and-email), it's shown at the top right of the card.
+Main shows one station at a time from the Roster, sorted by callsign suffix (the letters after the number — W1AW sorts under "AW"). The top line of the card reads the way you'd call the station, in large type: Callsign, Name, [Location](#roster-tab), and State — for example **WD0DMO Henry Holyrood KS**. Below that are Name, Last Name, and Spouse; then Birthday, Anniversary, and Last Check-in; then a Notes field and an Inactive checkbox. The station's [QRZ photo](#qrz-photos-names-addresses-and-email) sits at the top right; a station without one shows an empty frame there, so the text is always in the same place from card to card.
 
-**Keyboard shortcuts** (These work as soon as you're on the Main tab, as long as you haven't clicked into the Notes field):
+**Keyboard shortcuts** (These work as soon as you're on the Main tab, as long as you haven't clicked into the Notes field). They're also listed at the bottom of the card, and each one can be clicked instead of pressing the key:
 
 | Key | Action |
 | --- | --- |
@@ -165,11 +165,13 @@ The text shown on the [Preamble](#preamble) tab.
 
 The last tab, right after Settings. Each net has its own Roster; it's shown on both Roll Call and Traffic nets.
 
-Each station is shown as a card: Callsign, Name, Last Name, Spouse, City, State on the first line; Birthday, Anniversary, Last Check-in, QRZ URL, and an Inactive checkbox on the second. **+ Add Station** adds a blank one. Callsign fields force uppercase as you type.
+Each station is shown as a card: Callsign, Name, Last Name, Spouse, City, Location, State on the first line; Birthday, Anniversary, Last Check-in, QRZ URL, and an Inactive checkbox on the second. **+ Add Station** adds a blank one. Callsign fields force uppercase as you type.
+
+**Location** is how the net refers to where a station is — "East Campus, Lincoln", "N of McCook", "NE City" — and it's what the Main card shows. It started out as each station's City (or, for a station whose city a QRZ lookup had replaced, the city it was listed under before), and new stations start with the City you type. Edit it freely: QRZ lookups never change it. If it's left blank, the City is shown instead.
 
 A third line holds Area, Region, Phone, Email, Street, and ZIP. Area and Region are what a [Traffic Net](#traffic-net-mode) uses to place each station in its group (e.g. Area `Eastern`, or Region `5`).
 
-**Import Roster CSV** adds or updates stations in bulk. Recognized columns, in any order, case-insensitive: Callsign (or Call Sign), Name, Last Name (or Last, Surname), Spouse, City, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No), Area, Region, Phone, Email, Street (or Address), ZIP, Notes. A **First** column fills Name when there's no Name column. Spreadsheet leftovers are cleaned up on the way in: a Region of `5.0` becomes `5`, and a ZIP that lost its leading zero (`6484`) gets it back (`06484`). A row matching an existing callsign updates it (a blank cell leaves that field as it was); other rows are added as new stations. Birthday and Anniversary accept the same flexible formats described under [Birthdays & Anniversaries](#birthdays-anniversaries).
+**Import Roster CSV** adds or updates stations in bulk. Recognized columns, in any order, case-insensitive: Callsign (or Call Sign), Name, Last Name (or Last, Surname), Spouse, City, Location, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No), Area, Region, Phone, Email, Street (or Address), ZIP, Notes. A **First** column fills Name when there's no Name column. Spreadsheet leftovers are cleaned up on the way in: a Region of `5.0` becomes `5`, and a ZIP that lost its leading zero (`6484`) gets it back (`06484`). A row matching an existing callsign updates it (a blank cell leaves that field as it was); other rows are added as new stations. Birthday and Anniversary accept the same flexible formats described under [Birthdays & Anniversaries](#birthdays-anniversaries).
 
 **Export Roster CSV**, next to Import, saves the current Roster with every field above, in the same format Import accepts, so it round-trips cleanly.
 
@@ -178,7 +180,7 @@ A third line holds Area, Region, Phone, Email, Street, and ZIP. Area and Region 
 With a [QRZ login](#qrzcom-login) saved (installed app only), the app can look stations up on QRZ.com:
 
 - **Get from QRZ** on a station's card looks that one station up. It downloads a fresh copy of the station's QRZ photo and shows it on the card and on the Main roll-call card, and fills in **Name**, **Last Name**, **Email**, and the address where they're blank. Names and email you've typed are never overwritten. QRZ's nickname is used for Name when the station has one, middle initials are dropped, and all-caps license names and addresses are tidied up (`HIRAM P` → `Hiram`, `RR 1 BOX 5` → `RR 1 Box 5`, `MCCOOK` → `McCook`).
-- **Addresses:** a station with **no Street** on file gets QRZ's whole mailing address (Street, City, State, ZIP). If the City or State you had typed was different — often an informal one like "N of McCook" or "NE City" — it's kept in the station's [Notes](#main-tab-roll-call) as `Listed as: N of McCook, NE`. Spelling differences in spacing or punctuation don't count ("Springhill" and "Spring Hill" are the same). A station that already has a Street keeps its address; only its blank parts are filled, and only when its street and city match QRZ's.
+- **Addresses:** a station with **no Street** on file gets QRZ's whole mailing address (Street, City, State, ZIP). The City you had typed — often an informal one like "N of McCook" or "NE City" — stays in the station's **Location**, so the Main card still reads the way the net knows them. If the State you had was different, it's kept in the station's [Notes](#main-tab-roll-call) as `Listed as: N of McCook, NE`. Spelling differences in spacing or punctuation don't count ("Springhill" and "Spring Hill" are the same). A station that already has a Street keeps its address; only its blank parts are filled, and only when its street and city match QRZ's.
 - **Fetch Missing from QRZ** looks up every station that hasn't been looked up yet (stations looked up by an earlier version of the app that filled in fewer fields count as not yet) and is missing a photo, a name, an email, or part of its address, one at a time with a short pause between, so QRZ isn't flooded. It shows its progress and a summary at the end; click **Stop** to end it early. It reuses photos already saved rather than downloading them again. A station QRZ has no photo for isn't asked about again; use **Get from QRZ** on its card to retry. Each net has its own Roster, so run it once in each net.
 - **New stations are looked up automatically:** when you answer Yes to “Add to Roster?” from Early Check-ins, the Out of Sequence box, or End of the List, or type a callsign into a station card.
 
