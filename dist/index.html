@@ -824,6 +824,25 @@ let DATA = STORE.nets[STORE.activeNetId];
 
 /* Location starts as each station's City. A city that a QRZ lookup replaced was kept in
    Notes as "Listed as: N of McCook, NE"; that original wording is the better start. */
+/* Callsigns stored with a slashed zero (before normCall existed) get a real 0. Their QRZ
+   lookup failed under the Ø spelling, so it's cleared for Fetch Missing to try again. */
+(function fixSlashedZeros(){
+  let changed = false;
+  Object.values(STORE.nets).forEach(net=>{
+    (net.roster || []).forEach(r=>{
+      const fixed = normCall(r.callsign);
+      if(fixed === r.callsign) return;
+      r.callsign = fixed;
+      delete r.qrzLookedUp; delete r.qrzVer; delete r.photo;
+      changed = true;
+    });
+    (net.qni || []).forEach(q=>{
+      const fixed = normCall(q.callsign);
+      if(fixed !== q.callsign){ q.callsign = fixed; changed = true; }
+    });
+  });
+  if(changed) saveData();
+})();
 (function fillLocations(){
   let changed = false;
   Object.values(STORE.nets).forEach(net => (net.roster || []).forEach(r=>{
@@ -884,8 +903,13 @@ function deleteNet(id){
 }
 
 /* ---------- Callsign split / sort ---------- */
+/* Callsigns are often written with a slashed zero (Ø) for 0. To a computer that's a letter,
+   which breaks suffix sorting and QRZ lookups, so it's always turned into a real 0. */
+function normCall(cs){
+  return (cs||'').toUpperCase().replace(/[ØøΘθ∅⌀]/g, '0').trim();
+}
 function splitCallsign(cs){
-  cs = (cs||'').toUpperCase().trim();
+  cs = normCall(cs);
   let lastDigit = -1;
   for(let i=cs.length-1;i>=0;i--){
     if(cs[i]>='0' && cs[i]<='9'){ lastDigit = i; break; }
@@ -906,8 +930,8 @@ function sortedRoster(){
 }
 
 function findRosterByCall(call){
-  const target = (call||'').toUpperCase().trim();
-  return DATA.roster.find(r => r.callsign.toUpperCase().trim() === target);
+  const target = normCall(call);
+  return DATA.roster.find(r => normCall(r.callsign) === target);
 }
 
 /* Mirrors resolveCallsignInput, but matches by Name, Last Name, or both ("Mark Smith"),
@@ -932,7 +956,7 @@ function resolveNameInput(input){
      'ambiguous' - input matched more than one entry's suffix; call is null, candidates lists them
      'notfound'  - no match at all; call is the uppercased input, as typed */
 function resolveCallsignInput(input){
-  const target = (input||'').toUpperCase().trim();
+  const target = normCall(input);
   if(!target) return {call:null, status:'empty'};
   if(findRosterByCall(target)) return {call:target, status:'exact'};
   const candidates = DATA.roster.filter(r => splitCallsign(r.callsign).suffix === target);
@@ -942,7 +966,7 @@ function resolveCallsignInput(input){
 }
 
 function insertRosterEntry(entry){
-  entry.callsign = (entry.callsign||'').toUpperCase().trim();
+  entry.callsign = normCall(entry.callsign);
   DATA.roster.push(entry);
   saveData();
 }
@@ -1644,11 +1668,12 @@ document.addEventListener('keydown', (e)=>{
   if(e.code === 'ArrowLeft'){ e.preventDefault(); mainGoBack(); }
 });
 
-/* Force any callsign field to uppercase as the user types, regardless of Caps Lock */
+/* Force any callsign field to uppercase as the user types, regardless of Caps Lock,
+   and turn a slashed zero (Ø) into 0 */
 document.addEventListener('input', (e)=>{
   const el = e.target;
   if(!el.classList || !el.classList.contains('callsign-input')) return;
-  const upper = el.value.toUpperCase();
+  const upper = el.value.toUpperCase().replace(/[ØøΘθ∅⌀]/g, '0');
   if(upper === el.value) return;
   const start = el.selectionStart, end = el.selectionEnd;
   el.value = upper;
@@ -2596,7 +2621,7 @@ function importRosterCSV(text){
     const obj = {};
     Object.entries(fieldMap).forEach(([idx,field])=>{ obj[field] = (cols[idx]||'').trim(); });
     if(!obj.callsign){ skipped++; continue; }
-    obj.callsign = obj.callsign.toUpperCase();
+    obj.callsign = normCall(obj.callsign);
     if(obj.firstName !== undefined){
       if(!obj.name) obj.name = obj.firstName;
       delete obj.firstName;
@@ -3203,7 +3228,7 @@ function renderRosterTable(){
     entry.querySelectorAll('input').forEach(inp=>{
       inp.addEventListener('change', ()=>{
         const oldCall = r.callsign;
-        r.callsign = entry.querySelector('.r-callsign').value.toUpperCase().trim();
+        r.callsign = normCall(entry.querySelector('.r-callsign').value);
         const callChanged = r.callsign && r.callsign !== oldCall;
         if(callChanged){ delete r.photo; delete r.qrzLookedUp; }
         r.name = entry.querySelector('.r-name').value;

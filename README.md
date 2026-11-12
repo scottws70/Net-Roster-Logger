@@ -180,7 +180,7 @@ The text shown on the [Preamble](#preamble) tab.
 
 The last tab, right after Settings. Each net has its own Roster; it's shown on both Roll Call and Traffic nets.
 
-Each station is shown as a card: Callsign, Name, Last Name, Spouse, City, Location, State on the first line; Birthday, Anniversary, Last Check-in, QRZ URL, and an Inactive checkbox on the second. **+ Add Station** adds a blank one. Callsign fields force uppercase as you type.
+Each station is shown as a card: Callsign, Name, Last Name, Spouse, City, Location, State on the first line; Birthday, Anniversary, Last Check-in, QRZ URL, and an Inactive checkbox on the second. **+ Add Station** adds a blank one. Callsign fields force uppercase as you type, and a slashed zero (`Ø`, as many logs write it) is turned into a real `0` — in the Roster, in every check-in box, and in imported CSVs — so callsigns sort by suffix and look up correctly on QRZ.
 
 **Location** is how the net refers to where a station is — "East Campus, Lincoln", "N of McCook", "NE City" — and it's what the Main card shows. It started out as each station's City (or, for a station whose city a QRZ lookup had replaced, the city it was listed under before), and new stations start with the City you type. Edit it freely: QRZ lookups never change it. If it's left blank, the City is shown instead.
 
