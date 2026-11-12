@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "N8VCL-Net-Logger"
-version = "1.33.2"
+version = "1.34.0"
 dependencies = [
  "log",
  "serde",
