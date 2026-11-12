@@ -42,6 +42,7 @@ The header stays fixed at the top of the screen while everything below it scroll
 - **NCS:** shows the configured NCS callsign.
 - **Local Time** and **UTC Time** each show today's date above the current time, updated every second. Local time can be shown as 12- or 24-hour (Settings → Display); UTC is always 24-hour.
 - **ID Timer** counts down from 10 minutes. **Start** begins the countdown; **Stop** stops it and resets it to 10:00. At zero, a beep sounds and a "Time to ID" pop-up appears, reminding you to identify and check for waiting traffic — click **OK** to restart the countdown. The whole ID Timer box can be hidden if you don't want it (Settings → Display).
+- **Weather tiles** (installed app only), between the Net Name and NCS: Temp, Humidity, Wind, Barometer, and Precip from a weather station of your choice, refreshed every 5 minutes. Hover over a tile to see the station and when the reading was taken. The tiles dim when the reading is out of date or the last update failed. Set them up in Settings → [Weather](#weather).
 
 ## Preamble Tab
 
@@ -139,6 +140,20 @@ Net Name and NCS Callsign, shown in the header.
 - **Color Theme** — Default (dark), High Visibility (black and yellow, for bright rooms or low-vision readability), Light, Blue, or Terminal (green text on black, in a monospace font, like an old green-screen terminal).
 - **Local Time Format** — 12- or 24-hour. UTC is always 24-hour.
 - **Show the 10-minute ID timer** — uncheck to hide the ID Timer box and turn off its reminder and beep entirely.
+
+### Weather
+
+Weather tiles for the top of the screen, set separately for each net.
+
+- **Source:**
+  - **Weather Underground station** — any station on wunderground.com, such as your own, by its Station ID (e.g. `KNELINCO123`). Precip is the total **since midnight**. Needs a Weather Underground **API key**, which WU gives free to owners of stations that upload to it (on wunderground.com, under your account's API Keys page). Paste it in **Weather Underground API Key** and click **Save Key**; like the QRZ login, it's saved only on this computer and never included in Backups.
+  - **National Weather Service station** — an official observation station, usually an airport (e.g. `KLNK` Lincoln, `KOMA` Omaha, `KGRI` Grand Island). No key needed. Precip is the total for the **last 24 hours**. NWS stations report about once an hour.
+  - **Off** hides the tiles.
+- **Station ID** — the station to show.
+- **Temp / Humidity / Wind / Barometer / Precip** — choose which tiles appear.
+- **Test** fetches the weather right away and reports what it got (or why it couldn't).
+
+Wind shows direction, speed, and gust, e.g. `NW 7 G14 mph`, or `Calm`. Barometer is in inches of mercury.
 
 ### File Locations
 

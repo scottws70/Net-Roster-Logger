@@ -96,8 +96,14 @@
     padding:18px 24px 14px;
   }
   .header-top{
-    display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;
   }
+  /* Weather tiles between the net name and NCS */
+  .wx-tiles{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+  .wx-tile{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px 10px;min-width:64px;text-align:center;}
+  .wx-tile .l{display:block;font-size:10.5px;color:var(--text-dim);}
+  .wx-tile .v{display:block;font-family:var(--mono);font-size:15px;color:var(--text);white-space:nowrap;}
+  .wx-tiles.stale .wx-tile{opacity:.5;}
   .net-name-wrap{position:relative;display:inline-block;}
   .net-name-wrap::after{
     content:'▾';position:absolute;right:-4px;top:50%;transform:translateY(-50%);
@@ -352,6 +358,7 @@
     <div class="net-name-wrap">
       <select class="net-name-select" id="netNameDisplay"></select>
     </div>
+    <div class="wx-tiles" id="wxTiles" hidden></div>
     <div class="ncs" id="ncsDisplay">NCS: —</div>
   </div>
   <div class="clocks">
@@ -588,7 +595,7 @@
     </div>
 
     <div class="settings-section">
-      <h3>Display</h3>
+      <h3 id="displaySettingsTitle">Display</h3>
       <div class="field" style="max-width:300px;">
         <label>Color Theme</label>
         <select id="setTheme">
@@ -612,6 +619,39 @@
         <input type="checkbox" id="setShowIdTimer" style="width:auto;"> Show the 10-minute ID timer and "Time to ID" reminder
       </label>
       <p class="hint">Uncheck to hide the ID Timer box entirely. Any running countdown is stopped and no reminder pop-up or beep will occur.</p>
+    </div>
+
+    <div class="settings-section">
+      <h3>Weather</h3>
+      <p class="hint">Weather tiles at the top of the screen, between the net name and NCS. Set separately for each net. Refreshed every 5 minutes; tiles dim when the reading is out of date. Installed app only.</p>
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="max-width:270px;">
+          <label>Source</label>
+          <select id="wxSource">
+            <option value="off">Off</option>
+            <option value="wu">Weather Underground station</option>
+            <option value="nws">National Weather Service station</option>
+          </select>
+        </div>
+        <div class="field" style="max-width:190px;"><label>Station ID</label><input type="text" id="wxStation" class="callsign-input" autocomplete="off"></div>
+        <div class="field" style="flex:0 0 auto;min-width:0;"><button class="secondary" id="wxTest">Test</button></div>
+      </div>
+      <p class="hint" id="wxStationHint"></p>
+      <div class="row" style="gap:16px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" class="wx-show" data-tile="temp" style="width:auto;"> Temp</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" class="wx-show" data-tile="humidity" style="width:auto;"> Humidity</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" class="wx-show" data-tile="wind" style="width:auto;"> Wind</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" class="wx-show" data-tile="pressure" style="width:auto;"> Barometer</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" class="wx-show" data-tile="precip" style="width:auto;"> Precip</label>
+      </div>
+      <div class="row" id="wxKeyRow" style="align-items:flex-end;margin-top:12px;">
+        <div class="field" style="max-width:320px;"><label>Weather Underground API Key</label><input type="password" id="wxKey" autocomplete="off"></div>
+        <div class="field" style="flex:0 0 auto;min-width:0;">
+          <button class="secondary" id="wxKeySave">Save Key</button>
+          <button class="secondary" id="wxKeyClear">Clear</button>
+        </div>
+      </div>
+      <span class="flash" id="wxFlash"></span>
     </div>
 
     <div class="settings-section">
@@ -733,6 +773,7 @@ function defaultNetData(){
       timeFormat:'12',
       checkinsPaneWidth:220,
       showIdTimer:true,
+      weather:{source:'off', station:'', tiles:{temp:true, humidity:true, wind:true, pressure:true, precip:true}},
       netType:'rollcall',
       groups:[]
     },
@@ -1345,6 +1386,7 @@ function renderHeader(){
     .join('') + `<option value="__new__">+ New Net…</option>`;
   sel.value = STORE.activeNetId;
   document.getElementById('ncsDisplay').textContent = 'NCS: ' + (DATA.settings.ncs || '—');
+  weatherSync();
 }
 document.getElementById('netNameDisplay').addEventListener('change', (e)=>{
   const val = e.target.value;
@@ -2845,9 +2887,149 @@ document.getElementById('qrzFetchMissing').addEventListener('click', async ()=>{
   else qrzRosterFlash(`Done, ${done} looked up: ${summary}`);
 });
 
+/* ---------- Weather tiles (desktop app; fetched by the Rust side) ---------- */
+const WX_REFRESH_MS = 5 * 60 * 1000;
+let wxLast = null, wxError = '', wxKey = '', wxTimer = null, wxGen = 0;
+function wxConfig(){
+  const w = DATA.settings.weather || {};
+  return {source: w.source || 'off', station: (w.station || '').trim().toUpperCase(),
+          tiles: Object.assign({temp:true, humidity:true, wind:true, pressure:true, precip:true}, w.tiles || {})};
+}
+const COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+function wxWind(w){
+  if(w.windMph == null) return '—';
+  if(w.windMph < 1 && !w.gustMph) return 'Calm';
+  const dir = w.windDir == null ? '' : COMPASS[Math.round(w.windDir / 22.5) % 16] + ' ';
+  const gust = w.gustMph && w.gustMph > w.windMph + 0.5 ? ` G${Math.round(w.gustMph)}` : '';
+  return `${dir}${Math.round(w.windMph)}${gust} mph`;
+}
+function renderWeather(){
+  const el = document.getElementById('wxTiles');
+  const cfg = wxConfig();
+  if(!hamnetIsTauri() || cfg.source === 'off'){ el.hidden = true; return; }
+  el.hidden = false;
+  if(!wxLast){
+    el.classList.add('stale');
+    el.innerHTML = `<div class="wx-tile" title="${escapeHtml(wxError || 'Loading…')}"><span class="l">Weather</span><span class="v">${wxError ? 'unavailable' : '…'}</span></div>`;
+    return;
+  }
+  const w = wxLast, t = cfg.tiles;
+  const num = (v, digits, unit) => v == null ? '—' : v.toFixed(digits) + unit;
+  const tiles = [
+    t.temp     && ['Temp', num(w.tempF, 0, '°F')],
+    t.humidity && ['Humidity', num(w.humidity, 0, '%')],
+    t.wind     && ['Wind', wxWind(w)],
+    t.pressure && ['Barometer', num(w.pressureIn, 2, '″')],
+    t.precip   && [w.precipSpan === '24h' ? 'Precip 24h' : 'Precip today', num(w.precipIn, 2, '″')],
+  ].filter(Boolean);
+  // A reading older than 30 minutes (90 for hourly NWS reports) counts as stale
+  const ageMin = w.observed ? Math.round((Date.now()/1000 - w.observed) / 60) : null;
+  const stale = !!wxError || ageMin === null || ageMin > (cfg.source === 'nws' ? 90 : 30);
+  const when = w.observed ? new Date(w.observed * 1000).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) : '?';
+  const title = `${w.station} · observed ${when}` + (ageMin !== null && ageMin >= 60 ? ` (${Math.floor(ageMin/60)}h ${ageMin%60}m ago)` : '') +
+    (wxError ? `\nLast update failed: ${wxError}` : '');
+  el.classList.toggle('stale', stale);
+  el.innerHTML = tiles.map(([l, v]) => `<div class="wx-tile" title="${escapeHtml(title)}"><span class="l">${l}</span><span class="v">${escapeHtml(v)}</span></div>`).join('');
+}
+async function refreshWeather(){
+  const cfg = wxConfig();
+  if(!hamnetIsTauri() || cfg.source === 'off'){ renderWeather(); return; }
+  const gen = ++wxGen;
+  try{
+    const w = await window.__TAURI__.core.invoke('weather_fetch', {source: cfg.source, station: cfg.station});
+    if(gen !== wxGen) return;   // the net or its weather settings changed meanwhile
+    wxLast = w; wxError = '';
+  }catch(e){
+    if(gen !== wxGen) return;
+    wxError = String(e);
+  }
+  renderWeather();
+}
+/* Called whenever the header is drawn: refetches only when the net or its weather setup changed. */
+function weatherSync(){
+  const cfg = wxConfig();
+  const key = [STORE.activeNetId, cfg.source, cfg.station].join('|');
+  if(key !== wxKey){
+    wxKey = key; wxLast = null; wxError = '';
+    clearInterval(wxTimer);
+    if(hamnetIsTauri() && cfg.source !== 'off'){
+      refreshWeather();
+      wxTimer = setInterval(refreshWeather, WX_REFRESH_MS);
+    }
+  }
+  renderWeather();
+}
+function wxFlash(text, bad){
+  const el = document.getElementById('wxFlash');
+  el.textContent = text;
+  el.classList.toggle('bad', !!bad);
+}
+const WX_HINTS = {
+  off: '',
+  wu: 'Your station\'s ID as shown on wunderground.com (e.g. KNELINCO123). Precip is the total since midnight. Needs a Weather Underground API key, free to station owners from your account\'s API Keys page.',
+  nws: 'A National Weather Service observation station, usually an airport: e.g. KLNK (Lincoln), KOMA (Omaha), KGRI (Grand Island). Precip is the last 24 hours. No key needed.'
+};
+async function renderWeatherSettings(){
+  const cfg = wxConfig();
+  document.getElementById('wxSource').value = cfg.source;
+  document.getElementById('wxStation').value = cfg.station;
+  document.getElementById('wxStationHint').textContent = WX_HINTS[cfg.source];
+  document.querySelectorAll('.wx-show').forEach(cb => cb.checked = cfg.tiles[cb.dataset.tile] !== false);
+  document.getElementById('wxKeyRow').style.display = cfg.source === 'wu' ? '' : 'none';
+  const desktop = hamnetIsTauri();
+  ['wxSource','wxStation','wxTest','wxKey','wxKeySave','wxKeyClear'].forEach(id => document.getElementById(id).disabled = !desktop);
+  if(!desktop){ wxFlash('Weather is available in the desktop app.'); return; }
+  try{
+    const has = await window.__TAURI__.core.invoke('weather_has_wu_key');
+    const keyEl = document.getElementById('wxKey');
+    keyEl.value = '';
+    keyEl.placeholder = has ? '(saved)' : '';
+  }catch(e){}
+}
+function saveWeatherSettings(){
+  const w = DATA.settings.weather || (DATA.settings.weather = {});
+  w.source = document.getElementById('wxSource').value;
+  w.station = document.getElementById('wxStation').value.trim().toUpperCase();
+  w.tiles = {};
+  document.querySelectorAll('.wx-show').forEach(cb => w.tiles[cb.dataset.tile] = cb.checked);
+  saveData();
+  renderWeatherSettings();
+  weatherSync();
+}
+['wxSource','wxStation'].forEach(id => document.getElementById(id).addEventListener('change', saveWeatherSettings));
+document.querySelectorAll('.wx-show').forEach(cb => cb.addEventListener('change', saveWeatherSettings));
+document.getElementById('wxTest').addEventListener('click', async ()=>{
+  saveWeatherSettings();
+  const cfg = wxConfig();
+  if(cfg.source === 'off'){ wxFlash('Choose a weather source first.', true); return; }
+  wxFlash('Checking ' + (cfg.station || 'station') + '…');
+  await refreshWeather();
+  if(wxError) wxFlash(wxError, true);
+  else wxFlash(`${wxLast.station}: ${wxLast.tempF != null ? Math.round(wxLast.tempF) + '°F, ' : ''}${wxWind(wxLast)} — see the tiles at the top.`);
+});
+document.getElementById('wxKeySave').addEventListener('click', async ()=>{
+  const key = document.getElementById('wxKey').value.trim();
+  if(!key){ wxFlash('Paste your Weather Underground API key first.', true); return; }
+  try{
+    await window.__TAURI__.core.invoke('weather_save_wu_key', {key});
+    await renderWeatherSettings();
+    wxFlash('Weather Underground key saved.');
+    if(wxConfig().source === 'wu') refreshWeather();
+  }catch(e){ wxFlash('Save failed: ' + e, true); }
+});
+document.getElementById('wxKeyClear').addEventListener('click', async ()=>{
+  if(!confirm('Remove the saved Weather Underground API key from this computer?')) return;
+  try{
+    await window.__TAURI__.core.invoke('weather_save_wu_key', {key: ''});
+    await renderWeatherSettings();
+    wxFlash('Weather Underground key removed.');
+  }catch(e){ wxFlash('Clear failed: ' + e, true); }
+});
+
 function renderSettings(){
   renderFileLocations();
   renderQrzLogin();
+  renderWeatherSettings();
   const sel = document.getElementById('setActiveNet');
   sel.innerHTML = Object.entries(STORE.nets)
     .map(([id,net]) => `<option value="${id}">${escapeHtml(net.settings.netName || '(unnamed net)')}</option>`)

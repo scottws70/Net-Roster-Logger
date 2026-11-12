@@ -2,6 +2,7 @@ use std::fs;
 use std::path::Path;
 
 mod qrz;
+mod weather;
 
 /// Saves a text file into a chosen folder. If a file with `filename` already
 /// exists there, `alt_filename` (the same name with a time stamp) is used instead,
@@ -56,7 +57,10 @@ pub fn run() {
             qrz::qrz_test_login,
             qrz::qrz_photos_dir,
             qrz::qrz_saved_photos,
-            qrz::qrz_lookup
+            qrz::qrz_lookup,
+            weather::weather_has_wu_key,
+            weather::weather_save_wu_key,
+            weather::weather_fetch
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
