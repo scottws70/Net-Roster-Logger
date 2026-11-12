@@ -264,6 +264,19 @@
     padding:2px 7px;font-family:var(--mono);color:var(--text);
   }
   .empty-msg{color:var(--text-dim);font-size:14px;padding:20px 0;}
+  /* Touch gestures on the roll-call card (shown only on touch screens) */
+  .keyhint .gest{display:none;color:var(--text-dim);}
+  html.touch .keyhint .gest{display:inline;}
+  html.touch .station-card{touch-action:pan-y;user-select:none;-webkit-user-select:none;}
+  html.touch .station-card input{user-select:text;-webkit-user-select:text;}
+  #mainContent{position:relative;}
+  .gesture-toast{
+    position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:10;
+    background:var(--panel);border:1px solid var(--accent);color:var(--accent);
+    font-family:var(--mono);font-size:15px;padding:6px 14px;border-radius:6px;
+    pointer-events:none;opacity:0;transition:opacity .15s;white-space:nowrap;
+  }
+  .gesture-toast.show{opacity:1;}
 
   table{width:100%;border-collapse:collapse;font-size:13.5px;}
   th{text-align:left;color:var(--text-dim);font-size:11.5px;padding:6px 8px;border-bottom:1px solid var(--border);}
@@ -344,10 +357,54 @@
   .settings-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
   .settings-section h3{font-size:14px;color:var(--accent);margin:0 0 14px;}
 
+  /* Compact header for small screens (tablets, phones, short windows): one short
+     row of clocks and a single swipeable row of tabs, so the work area gets the room. */
+  @media (max-width:760px), (max-height:600px){
+    header{padding:6px 12px 8px;}
+    .net-name-select{font-size:20px;}
+    .ncs{font-size:13px;}
+    .wx-tiles{gap:5px;}
+    .wx-tile{padding:2px 6px;min-width:50px;}
+    .wx-tile .l{font-size:9.5px;}
+    .wx-tile .v{font-size:13px;}
+    .clocks{flex-wrap:nowrap;gap:6px;margin-top:6px;}
+    .clock-box{min-width:0;padding:4px 8px;}
+    .clock-date{display:none;}
+    .clock-label{font-size:10px;margin-bottom:0;}
+    .clock-value{font-size:16px;letter-spacing:0;white-space:nowrap;}
+    .clock-box.timer{display:flex;flex-wrap:wrap;align-items:center;column-gap:8px;}
+    .clock-box.timer .clock-label{flex-basis:100%;}
+    .timer-buttons{margin-top:0;gap:4px;}
+    .timer-buttons button{padding:2px 7px;font-size:11px;}
+    nav.tabs{flex-wrap:nowrap;overflow-x:auto;padding:0 6px;scrollbar-width:none;}
+    nav.tabs::-webkit-scrollbar{display:none;}
+    nav.tabs button{padding:9px 9px;white-space:nowrap;flex-shrink:0;font-size:13px;}
+    main{padding:12px;}
+  }
+  @media (max-width:760px){
+    .checkins-pane{max-height:120px;}
+    .checkins-pane h3{padding:8px 14px 6px;}
+  }
   @media (max-width:640px){
-    .clocks{flex-direction:column;}
-    main{padding:14px;}
+    main{padding:12px;}
     .panel{padding:16px;}
+  }
+  /* Smaller roll-call card on small screens (kept last so it overrides the base card styles) */
+  @media (max-width:760px), (max-height:600px){
+    .station-card{padding:12px 14px;margin-bottom:12px;}
+    h2.tab-title{font-size:15px;margin-bottom:10px;}
+    .panel{padding:12px 14px;}
+    .ncs-prompt{font-size:15px;margin-bottom:6px;}
+    .station-layout{grid-template-columns:minmax(0,1fr) 72px;gap:0 10px;}
+    .station-photo-slot{width:72px;}
+    .station-call{font-size:22px;letter-spacing:.5px;}
+    .station-grid{gap:6px 12px;margin-top:8px;}
+    .station-grid div span.k{font-size:10px;}
+    .station-grid div span.v{font-size:13px;}
+    #mainContent .field{margin-top:10px !important;margin-bottom:6px;}
+    #mainContent .field input{padding:6px 8px;font-size:13px;}
+    .keyhint{flex-direction:row;flex-wrap:wrap;gap:6px 14px;margin-top:10px;}
+    .keyhint button kbd{min-width:0;margin-right:4px;}
   }
 </style>
 </head>
@@ -1389,6 +1446,8 @@ function showTab(tab){
   document.getElementById('tab-'+tab).style.display='block';
   document.querySelectorAll('#tabNav button').forEach(b=>{
     b.classList.toggle('active', b.dataset.tab === tab);
+    // keep the chosen tab in view when the tab row scrolls sideways on small screens
+    if(b.dataset.tab === tab && b.scrollIntoView) b.scrollIntoView({block:'nearest', inline:'nearest'});
   });
   if(tab==='main') renderMain();
   if(tab==='preamble') renderPreamble();
@@ -1603,9 +1662,9 @@ function renderMain(skipCheckinRevalidate){
         <input type="checkbox" id="mainInactive" style="width:auto;"> Mark this station Inactive (hide from Main roll call)
       </label>
       <div class="keyhint">
-        <button data-key="checkin" title="Same as pressing Space"><kbd>Space</kbd> check in &amp; next</button>
-        <button data-key="next" title="Same as pressing →"><kbd>→</kbd> skip to next (no check-in)</button>
-        <button data-key="back" title="Same as pressing ←"><kbd>←</kbd> back one station</button>
+        <button data-key="checkin" title="Same as pressing Space"><kbd>Space</kbd> check in &amp; next<span class="gest"> · double-tap</span></button>
+        <button data-key="next" title="Same as pressing →"><kbd>→</kbd> skip to next (no check-in)<span class="gest"> · swipe left</span></button>
+        <button data-key="back" title="Same as pressing ←"><kbd>←</kbd> back one station<span class="gest"> · swipe right</span></button>
       </div>
     </div><div class="station-photo-slot">${photoImgHtml(r, 'station-photo')}</div></div></div>
   `;
@@ -1667,6 +1726,60 @@ document.addEventListener('keydown', (e)=>{
   if(e.code === 'ArrowRight'){ e.preventDefault(); mainAdvance(false); }
   if(e.code === 'ArrowLeft'){ e.preventDefault(); mainGoBack(); }
 });
+
+/* Touch gestures on the roll-call card: double-tap = check in & next,
+   swipe left = skip to next, swipe right = back one station.
+   Touches that start on the Notes box, checkbox, or buttons are left alone. */
+if(window.matchMedia && matchMedia('(pointer:coarse)').matches) document.documentElement.classList.add('touch');
+(function(){
+  const host = document.getElementById('mainContent');
+  let start = null, lastTap = 0, lastTapX = 0, lastTapY = 0, toastTimer = null;
+  function toast(text){
+    let t = host.querySelector('.gesture-toast');
+    if(!t){ t = document.createElement('div'); t.className = 'gesture-toast'; host.appendChild(t); }
+    t.textContent = text;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=> t.classList.remove('show'), 900);
+  }
+  function currentCall(){
+    const list = sortedRoster();
+    const r = list[DATA.mainCursor];
+    return r ? r.callsign : '';
+  }
+  host.addEventListener('pointerdown', (e)=>{
+    if(e.pointerType !== 'touch' || !e.isPrimary) return;
+    if(!e.target.closest('.station-card') || e.target.closest('input,textarea,select,label,button,a')){ start = null; return; }
+    start = {x:e.clientX, y:e.clientY, t:Date.now()};
+  });
+  host.addEventListener('pointercancel', ()=>{ start = null; });
+  host.addEventListener('pointerup', (e)=>{
+    if(!start || e.pointerType !== 'touch') return;
+    const dx = e.clientX - start.x, dy = e.clientY - start.y, dt = Date.now() - start.t;
+    start = null;
+    if(currentTab !== 'main') return;
+    if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    if(Math.abs(dx) > 60 && Math.abs(dy) < Math.abs(dx) * 0.6 && dt < 700){
+      lastTap = 0;
+      if(dx < 0){ const c = currentCall(); mainAdvance(false); toast('Skipped ' + c + ' →'); }
+      else { mainGoBack(); toast('← Back to ' + currentCall()); }
+      return;
+    }
+    if(Math.abs(dx) < 12 && Math.abs(dy) < 12 && dt < 350){
+      const now = Date.now();
+      if(now - lastTap < 350 && Math.abs(e.clientX - lastTapX) < 30 && Math.abs(e.clientY - lastTapY) < 30){
+        lastTap = 0;
+        const c = currentCall();
+        mainAdvance(true);
+        toast('✓ ' + c + ' checked in');
+      } else {
+        lastTap = now; lastTapX = e.clientX; lastTapY = e.clientY;
+      }
+    }
+  });
+  // touch-action on the card doesn't stop double-tap zoom everywhere; block it here
+  host.addEventListener('dblclick', (e)=>{ if(e.target.closest('.station-card')) e.preventDefault(); });
+})();
 
 /* Force any callsign field to uppercase as the user types, regardless of Caps Lock,
    and turn a slashed zero (Ø) into 0 */
@@ -2266,6 +2379,11 @@ function downloadBlob(blob, filename){
 function hamnetIsTauri(){
   return !!(window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.dialog);
 }
+/* The Android app can't save into plain folder paths: each file is saved through
+   Android's own "save as" screen and written by the fs plugin. */
+function hamnetIsAndroid(){
+  return hamnetIsTauri() && /Android/i.test(navigator.userAgent);
+}
 function getTauriDirs(){
   try{ return JSON.parse(localStorage.getItem('hamnet_tauri_dirs') || '{}'); }catch(e){ return {}; }
 }
@@ -2278,6 +2396,13 @@ async function saveViaTauri(kind, filename, blob){
   const T = window.__TAURI__;
   try{
     const text = await blob.text();
+    if(hamnetIsAndroid()){
+      const ext = (filename.split('.').pop() || 'txt').toLowerCase();
+      const uri = await T.dialog.save({defaultPath: filename, filters:[{name: ext.toUpperCase() + ' file', extensions:[ext]}]});
+      if(!uri) return {cancelled:true};
+      await T.fs.writeTextFile(uri, text);
+      return {saved:true, picked:filename};
+    }
     const dir = getTauriDirs()[kind];
     if(dir){
       const t = new Date();
@@ -2336,7 +2461,8 @@ function showSaveResult(label, result, flashId){
   flash.classList.remove('bad');
   if(result.cancelled){ flash.textContent = `${label} cancelled.`; return; }
   if(result.error){ flash.textContent = `${label} failed: ${result.error}`; flash.classList.add('bad'); return; }
-  if(result.saved && result.path) flash.textContent = `${label} saved to ${result.path}.`;
+  if(result.saved && result.picked) flash.textContent = `${label} saved.`;
+  else if(result.saved && result.path) flash.textContent = `${label} saved to ${result.path}.`;
   else if(result.saved) flash.textContent = `${label} saved to "${result.folder}" as ${result.filename}.`;
   else flash.textContent = `${label} downloaded.`;
 }
@@ -2345,6 +2471,15 @@ async function renderFileLocations(){
   const hint = document.getElementById('fsSupportHint');
   const kinds = [['backup','backupDirName','chooseBackupDir','clearBackupDir'],
                  ['export','exportDirName','chooseExportDir','clearExportDir']];
+  if(hamnetIsAndroid()){
+    hint.textContent = "On Android you'll be asked where to save each Backup and Roster export.";
+    kinds.forEach(([k,nameId,chooseId,clearId])=>{
+      document.getElementById(nameId).textContent = 'Ask each time';
+      document.getElementById(chooseId).disabled = true;
+      document.getElementById(clearId).disabled = true;
+    });
+    return;
+  }
   if(hamnetIsTauri()){
     hint.textContent = "Choose where Backups and Roster exports are saved. If no folder is chosen, you'll be asked where to save each file. These folder choices apply to this computer (not to individual nets).";
     const dirs = getTauriDirs();
@@ -3290,15 +3425,27 @@ applyNetTypeUI();
 showTab('preamble');
 if(hamnetIsTauri()){
   document.querySelectorAll('.qrz-only').forEach(el => el.style.display = '');
-  Promise.all([
-    window.__TAURI__.core.invoke('qrz_photos_dir'),
-    window.__TAURI__.core.invoke('qrz_status')
-  ]).then(([dir, st])=>{
-    QRZ_PHOTOS_DIR = dir;
-    QRZ_HAS_LOGIN = !!(st.username && st.hasPassword);
-    if(currentTab === 'main') renderMain(true);
-    if(currentTab === 'roster') renderRosterTable();
-  }).catch(e => console.warn('QRZ setup failed:', e));
+  /* On Android the first calls can arrive before the app knows which page is
+     loaded, and get refused ("not allowed"). Retry briefly until they go through. */
+  (async ()=>{
+    for(let i = 0; ; i++){
+      try{
+        const [dir, st] = await Promise.all([
+          window.__TAURI__.core.invoke('qrz_photos_dir'),
+          window.__TAURI__.core.invoke('qrz_status')
+        ]);
+        QRZ_PHOTOS_DIR = dir;
+        QRZ_HAS_LOGIN = !!(st.username && st.hasPassword);
+        if(currentTab === 'main') renderMain(true);
+        if(currentTab === 'roster') renderRosterTable();
+        if(wxError){ wxKey = ''; weatherSync(); }   // the startup weather fetch was refused too
+        return;
+      }catch(e){
+        if(i >= 30 || !/not allowed/i.test(String(e))){ console.warn('QRZ setup failed:', e); return; }
+        await new Promise(res => setTimeout(res, 250));
+      }
+    }
+  })();
 }
 </script>
 </body>

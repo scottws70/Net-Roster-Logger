@@ -3,6 +3,7 @@
   <li>Click "Releases" on the right.</li>
   <li>Download your preferred package.</li>
   <li>Install (Or Run, in the case of the AppImage)</li>
+  <li>Android (phones and tablets, including Amazon Fire): download the .apk on the device, open it, and allow installing from that app when asked.</li>
   <li>Go to Settings, set up your preferences and populate/import your roster.</li>
 </ul>
 
@@ -42,6 +43,7 @@ The header stays fixed at the top of the screen while everything below it scroll
 - **NCS:** shows the configured NCS callsign.
 - **Local Time** and **UTC Time** each show today's date above the current time, updated every second. Local time can be shown as 12- or 24-hour (Settings → Display); UTC is always 24-hour.
 - **ID Timer** counts down from 10 minutes. **Start** begins the countdown; **Stop** stops it and resets it to 10:00. At zero, a beep sounds and a "Time to ID" pop-up appears, reminding you to identify and check for waiting traffic — click **OK** to restart the countdown. The whole ID Timer box can be hidden if you don't want it (Settings → Display).
+- **Small screens** (tablets, phones, or a small window): the header shrinks to one short row — the clocks sit side by side without their dates, the ID Timer's Start/Stop sit beside it, and the tabs become a single row you swipe sideways.
 - **Weather tiles** (installed app only), between the Net Name and NCS: Temp, Humidity, Wind, Barometer, and Precip from a weather station of your choice, refreshed every 5 minutes. Hover over a tile to see the station and when the reading was taken. The tiles dim when the reading is out of date or the last update failed. Set them up in Settings → [Weather](#weather).
 
 ## Preamble Tab
@@ -84,6 +86,8 @@ Main shows one station at a time from the Roster, sorted by callsign suffix (the
 | Space | Check the station in and move to the next one |
 | → | Skip to the next station, without checking in |
 | ← | Go back one station (works repeatedly, even past ones already checked in — use it to catch a missed or misheard callsign) |
+
+**Touch screens** (Android tablets and phones, touch-screen laptops) can use gestures on the card instead: **double-tap** to check in and move to the next station, **swipe left** to skip, and **swipe right** to go back. A short message at the top confirms what happened ("✓ K0BHL checked in"). Touches that start on the Notes box, the Inactive checkbox, or the buttons are ignored. On small screens the card itself is more compact, so more of it fits without scrolling.
 
 A station already checked in today is skipped automatically as you move forward. The roll call restarts from the top of the Roster each new day, so anyone not checked in today — whether that's from yesterday, last week, or never — will come up again.
 
@@ -161,6 +165,7 @@ Choose a folder for Backups and a folder for Roster exports, so they save automa
 
 - **Reset** clears the choice. This setting belongs to the computer, not to a net, so it isn't included in Backup/Restore.
 - The location is a setting that applies to all nets. All other settings are per-net.
+- On Android, folders can't be chosen: each Backup and Roster export opens Android's own save screen so you can pick where it goes.
 
 ### QRZ.com Login
 
