@@ -408,6 +408,8 @@
     .keyhint{flex-direction:row;flex-wrap:wrap;gap:6px 14px;margin-top:10px;}
     .keyhint button kbd{min-width:0;margin-right:4px;}
   }
+a.external-link{color:var(--accent);font-weight:600;}
+a.external-link:hover{text-decoration:underline;}
 </style>
 </head>
 <body>
@@ -616,6 +618,10 @@
         <input type="file" id="restoreFileInput" accept=".json,application/json" style="display:none;">
         <span class="flash" id="backupFlash"></span>
       </div>
+    </div>
+
+    <div class="settings-section" style="margin-top:26px;padding-top:22px;border-top:1px solid var(--border-soft);">
+      <p class="hint" style="margin:0;">If this program has earned a permanent place in your shack and you would like to, you can support it at <a href="https://buymeacoffee.com/scottws" target="_blank" rel="noopener" class="external-link">Buy Me a Coffee</a>.</p>
     </div>
   </section>
 
@@ -3757,6 +3763,14 @@ document.getElementById('shareConnectBtn').addEventListener('click', async ()=>{
 });
 document.getElementById('shareDisconnectBtn').addEventListener('click', remoteDisconnect);
 document.getElementById('shareBackBtn').addEventListener('click', remoteGoBack);
+
+/* ---------- External links: the app window can't open them itself ---------- */
+document.addEventListener('click', e=>{
+  const a = e.target.closest && e.target.closest('a.external-link');
+  if(!a || !hamnetIsTauri() || !(window.__TAURI__ && window.__TAURI__.opener)) return;
+  e.preventDefault();
+  window.__TAURI__.opener.openUrl(a.href).catch(err=>console.error(err));
+});
 
 /* ============================= INIT ============================= */
 applyTheme();
