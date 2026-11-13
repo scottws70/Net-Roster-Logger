@@ -108,7 +108,7 @@ fn xml_tag(xml: &str, name: &str) -> Option<String> {
     (!text.is_empty()).then_some(text)
 }
 
-fn photos_dir(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn photos_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("photos");
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
@@ -177,7 +177,7 @@ fn image_ext(url: &str, content_type: &str) -> &'static str {
     }
 }
 
-fn lookup_blocking(app: &AppHandle, callsign: &str, refresh_photo: bool) -> Result<LookupResult, String> {
+pub(crate) fn lookup_blocking(app: &AppHandle, callsign: &str, refresh_photo: bool) -> Result<LookupResult, String> {
     let xml = lookup_xml(app, callsign)?;
     let mut result = LookupResult {
         status: "notfound".into(),

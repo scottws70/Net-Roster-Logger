@@ -264,6 +264,8 @@
     padding:2px 7px;font-family:var(--mono);color:var(--text);
   }
   .empty-msg{color:var(--text-dim);font-size:14px;padding:20px 0;}
+  #remoteBanner{background:var(--bad);color:#fff;text-align:center;font-size:13px;padding:5px 10px;flex-shrink:0;}
+  #remoteBanner[hidden]{display:none;}
   /* Touch gestures on the roll-call card (shown only on touch screens) */
   .keyhint .gest{display:none;color:var(--text-dim);}
   html.touch .keyhint .gest{display:inline;}
@@ -409,6 +411,23 @@
 </style>
 </head>
 <body>
+<div id="remoteBanner" hidden>Lost connection to the main computer — retrying… Changes here will be sent when it's back.</div>
+<div class="modal-overlay" id="remoteOverlay">
+  <div class="modal-box" style="max-width:420px;">
+    <div id="remotePairBox">
+      <h3>Connect to <span class="remote-host-name"></span></h3>
+      <p>Enter the pairing code shown on the main computer in <b>Settings → Sharing</b>.</p>
+      <input type="text" id="remoteCode" inputmode="numeric" autocomplete="off" maxlength="12" style="font-family:var(--mono);font-size:22px;letter-spacing:3px;text-align:center;">
+      <p id="remotePairMsg" style="color:var(--bad);min-height:1.2em;"></p>
+      <div class="btn-row"><button class="primary" id="remotePairBtn">Connect</button></div>
+    </div>
+    <div id="remoteWaitBox" hidden>
+      <h3>Waiting for <span class="remote-host-name"></span></h3>
+      <p>Net Logger on the main computer is starting up. This will continue on its own.</p>
+    </div>
+    <div class="btn-row" style="margin-top:8px;"><button class="secondary" id="remoteBackBtn" hidden>Back to This Device's Nets</button></div>
+  </div>
+</div>
 
 <header>
   <div class="header-top">
@@ -752,6 +771,47 @@
       <span class="flash" id="qrzFlash"></span>
     </div>
 
+    <div class="settings-section" id="shareSection" hidden>
+      <h3>Sharing</h3>
+      <div id="shareHostBox" hidden>
+        <p class="hint">Let a tablet, phone, or laptop on your network (or Tailscale) work on this computer's nets. On that device, open one of the addresses below in a web browser, or use <b>Connect</b> in the Net Logger app there, and enter the pairing code. Whichever device you're using is in charge; the others follow along within a couple of seconds. This computer must be on with Net Logger open.</p>
+        <div class="row" style="align-items:center;">
+          <label style="display:flex;align-items:center;gap:7px;font-size:14px;cursor:pointer;flex:0 0 auto;">
+            <input type="checkbox" id="shareEnabled" style="width:auto;"> Share this computer's nets
+          </label>
+          <div class="field" style="max-width:110px;margin-bottom:0;"><label>Port</label><input type="text" id="sharePort" inputmode="numeric" autocomplete="off"></div>
+        </div>
+        <div id="shareDetails" hidden style="margin-top:12px;">
+          <div class="row" style="align-items:flex-start;">
+            <div class="field" style="min-width:220px;">
+              <label>Address to open on the other device</label>
+              <div id="shareAddrs"></div>
+              <p class="hint" style="margin:6px 0 0;">Tailscale addresses start with 100. You can also use this computer's Tailscale name.</p>
+            </div>
+            <div class="field" style="flex:0 0 auto;min-width:0;">
+              <label>Pairing code</label>
+              <div id="shareCode" style="font-family:var(--mono);font-size:24px;letter-spacing:3px;color:var(--accent);"></div>
+              <button class="secondary" id="shareNewCode" style="margin-top:6px;">New Code</button>
+            </div>
+          </div>
+          <p class="hint">On Windows, allow Net Logger through the firewall if asked (Private networks).</p>
+        </div>
+      </div>
+      <div id="shareConnectBox" hidden style="margin-top:14px;">
+        <p class="hint"><b>Use another computer's nets:</b> enter the address shown in that computer's Settings → Sharing.</p>
+        <div class="row" style="align-items:flex-end;">
+          <div class="field" style="max-width:280px;"><label>Main computer's address</label><input type="text" id="shareConnectAddr" autocomplete="off" placeholder="192.168.1.20:7373" autocapitalize="off" spellcheck="false"></div>
+          <div class="field" style="flex:0 0 auto;min-width:0;"><button class="secondary" id="shareConnectBtn">Connect</button></div>
+        </div>
+      </div>
+      <div id="shareRemoteBox" hidden>
+        <p class="hint">You're working on the nets of the computer at <b class="remote-host-name"></b>. Changes here are saved there. QRZ and weather use that computer's logins.</p>
+        <button class="secondary" id="shareBackBtn">Back to This Device's Nets</button>
+        <button class="secondary" id="shareDisconnectBtn">Disconnect</button>
+      </div>
+      <span class="flash" id="shareFlash"></span>
+    </div>
+
     <div class="settings-section">
       <h3>Preamble Script</h3>
       <div class="field"><textarea id="setPreamble" rows="6"></textarea></div>
@@ -850,7 +910,26 @@ function defaultStore(){
   return { version:2, activeNetId:id, nets:{ [id]: defaultNetData() } };
 }
 
+/* Set when this page was opened from another computer that's sharing its nets
+   (see Settings → Sharing): {paired, ready, version, store}. The data then lives on that
+   computer; this page reads it at load and sends every save back to it. */
+const HAMNET_REMOTE = window.HAMNET_REMOTE || null;
+const REMOTE_OK = !!(HAMNET_REMOTE && HAMNET_REMOTE.paired && HAMNET_REMOTE.ready && HAMNET_REMOTE.store);
+
+function normalizeStore(parsed){
+  if(!parsed || !parsed.nets || !Object.keys(parsed.nets).length) return null;
+  Object.keys(parsed.nets).forEach(id=>{
+    parsed.nets[id] = Object.assign(defaultNetData(), parsed.nets[id]);
+  });
+  if(!parsed.nets[parsed.activeNetId]) parsed.activeNetId = Object.keys(parsed.nets)[0];
+  return parsed;
+}
+
 function loadStore(){
+  if(HAMNET_REMOTE){
+    // Never fall back to this browser's own saved data: it isn't what's being shared
+    return (REMOTE_OK && normalizeStore(HAMNET_REMOTE.store)) || defaultStore();
+  }
   try{
     const raw = localStorage.getItem(STORE_KEY);
     if(raw){
@@ -912,11 +991,116 @@ let DATA = STORE.nets[STORE.activeNetId];
 })();
 
 function saveData(){
+  pendingIncoming = null;   // a change made here wins over a not-yet-shown one from elsewhere
+  if(HAMNET_REMOTE){ remoteSave(); return; }
   try{
     localStorage.setItem(STORE_KEY, JSON.stringify(STORE));
   }catch(e){
     console.error('Storage write failed.', e);
   }
+  sharePublish();
+}
+
+/* ---------- Sharing between devices ----------
+   One device at a time is in charge: each save is sent to the other side, and the
+   other side redraws with it. A change that arrives while you're typing in a box waits
+   until you leave the box (and is dropped if you change something yourself first). */
+var pendingIncoming = null;
+function applyIncomingStore(store){
+  pendingIncoming = store;
+  tryApplyIncoming();
+}
+function tryApplyIncoming(){
+  if(!pendingIncoming) return;
+  const a = document.activeElement;
+  if(a && (a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' ||
+           (a.tagName === 'INPUT' && !/^(checkbox|radio|button|file)$/i.test(a.type)))){
+    setTimeout(tryApplyIncoming, 700);
+    return;
+  }
+  const store = normalizeStore(pendingIncoming);
+  pendingIncoming = null;
+  if(!store) return;
+  STORE = store;
+  DATA = STORE.nets[STORE.activeNetId];
+  if(!HAMNET_REMOTE){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(STORE)); }catch(e){ console.error('Storage write failed.', e); }
+  }
+  redrawAll();
+}
+function redrawAll(){
+  applyTheme();
+  renderHeader();
+  renderCheckins();
+  applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
+  applyIdTimerVisibility();
+  applyNetTypeUI();
+  showTab(currentTab);
+}
+
+/* This computer, when sharing is on: hand each save to the sharing server. */
+var SHARE_ON = false, sharePubTimer = null;
+function sharePublish(now){
+  if(!SHARE_ON) return;
+  clearTimeout(sharePubTimer);
+  const send = ()=> window.__TAURI__.core.invoke('share_publish', {store: JSON.stringify(STORE)}).catch(e => console.warn('Sharing update failed:', e));
+  if(now) send(); else sharePubTimer = setTimeout(send, 150);
+}
+
+/* A remote page: send saves to the main computer, and check it for newer data. */
+var remoteVersion = REMOTE_OK ? HAMNET_REMOTE.version : 0;
+var remotePutTimer = null, remotePutting = false, remoteDirty = false;
+function remoteSave(){
+  if(!REMOTE_OK) return;
+  remoteDirty = true;
+  clearTimeout(remotePutTimer);
+  remotePutTimer = setTimeout(remoteFlush, 250);
+}
+async function remoteFlush(){
+  if(remotePutting){ remotePutTimer = setTimeout(remoteFlush, 250); return; }
+  if(!remoteDirty) return;
+  remoteDirty = false;
+  remotePutting = true;
+  try{
+    const r = await fetch('/api/store', {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(STORE)});
+    if(r.status === 401){ remoteDirty = true; showRemoteOverlay('pair'); return; }
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    remoteVersion = (await r.json()).version;
+    setRemoteDown(false);
+  }catch(e){
+    remoteDirty = true;
+    setRemoteDown(true);
+    clearTimeout(remotePutTimer);
+    remotePutTimer = setTimeout(remoteFlush, 2000);
+  }finally{
+    remotePutting = false;
+  }
+}
+async function remotePoll(){
+  if(remoteDirty || remotePutting) return;
+  try{
+    const r = await fetch('/api/version', {cache:'no-store'});
+    if(r.status === 401){ showRemoteOverlay('pair'); return; }
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const {version} = await r.json();
+    setRemoteDown(false);
+    if(version === remoteVersion) return;
+    const sr = await fetch('/api/store', {cache:'no-store'});
+    if(!sr.ok) return;
+    const got = await sr.json();
+    if(remoteDirty || remotePutting) return;   // a change made here meanwhile wins
+    remoteVersion = got.version;
+    applyIncomingStore(got.store);
+  }catch(e){
+    setRemoteDown(true);
+  }
+}
+var remoteDown = false;
+function setRemoteDown(down){
+  if(down === remoteDown) return;
+  remoteDown = down;
+  const b = document.getElementById('remoteBanner');
+  if(b) b.hidden = !down;
 }
 
 function switchNet(id){
@@ -2377,12 +2561,28 @@ function downloadBlob(blob, filename){
    When running inside the Tauri app, real folder paths are available through its
    dialog plugin and two small Rust commands (save_text_file / write_text_file). */
 function hamnetIsTauri(){
+  // A remote page shown inside the installed app has no access to this device's app side
+  if(HAMNET_REMOTE) return false;
   return !!(window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.dialog);
 }
 /* The Android app can't save into plain folder paths: each file is saved through
    Android's own "save as" screen and written by the fs plugin. */
 function hamnetIsAndroid(){
   return hamnetIsTauri() && /Android/i.test(navigator.userAgent);
+}
+/* QRZ and weather run on this computer's app side, or, for a page opened from another
+   computer that's sharing, on that computer (using its QRZ login and weather key). */
+function hasBackend(){
+  return hamnetIsTauri() || REMOTE_OK;
+}
+async function backendInvoke(cmd, args){
+  if(HAMNET_REMOTE){
+    const r = await fetch('/api/invoke', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({cmd, args: args || {}})});
+    const j = await r.json().catch(()=>({error: 'HTTP ' + r.status}));
+    if(j.error !== undefined) throw j.error;
+    return j.ok;
+  }
+  return window.__TAURI__.core.invoke(cmd, args);
 }
 function getTauriDirs(){
   try{ return JSON.parse(localStorage.getItem('hamnet_tauri_dirs') || '{}'); }catch(e){ return {}; }
@@ -2833,6 +3033,12 @@ function qrzFlash(text, bad){
 async function renderQrzLogin(){
   const user = document.getElementById('qrzUser'), pass = document.getElementById('qrzPass');
   const buttons = ['qrzSave','qrzTest','qrzClear'].map(id => document.getElementById(id));
+  if(HAMNET_REMOTE){
+    [user, pass, ...buttons].forEach(el => el.disabled = true);
+    qrzFlash('Uses the QRZ login saved on ' + location.host + '. Change it there.');
+    try{ const st = await backendInvoke('qrz_status'); user.value = st.username || ''; QRZ_HAS_LOGIN = !!(st.username && st.hasPassword); }catch(e){}
+    return;
+  }
   if(!hamnetIsTauri()){
     [user, pass, ...buttons].forEach(el => el.disabled = true);
     qrzFlash('QRZ lookups are available in the desktop app.');
@@ -2882,6 +3088,7 @@ let QRZ_PHOTOS_DIR = null;   // the desktop app's photos folder, set at startup
 let QRZ_HAS_LOGIN = false;
 function photoSrc(r){
   if(!r || !r.photo || !QRZ_PHOTOS_DIR) return '';
+  if(HAMNET_REMOTE) return '/photos/' + encodeURIComponent(r.photo) + '?v=' + (r.photoVer || 0);
   const sep = QRZ_PHOTOS_DIR.includes('\\') ? '\\' : '/';
   // ?v= makes a re-fetched photo show up instead of the cached old one
   return window.__TAURI__.core.convertFileSrc(QRZ_PHOTOS_DIR + sep + r.photo) + '?v=' + (r.photoVer || 0);
@@ -2983,7 +3190,7 @@ function applyQrzResult(r, res){
 }
 /* refreshPhoto: download the photo even if one is already saved (Get from QRZ on a card). */
 async function qrzLookup(r, refreshPhoto){
-  const res = await window.__TAURI__.core.invoke('qrz_lookup', {callsign: r.callsign, refreshPhoto: !!refreshPhoto});
+  const res = await backendInvoke('qrz_lookup', {callsign: r.callsign, refreshPhoto: !!refreshPhoto});
   return applyQrzResult(r, res);
 }
 function describeQrzResult(call, out){
@@ -3001,7 +3208,7 @@ function qrzRosterFlash(text, bad){
 }
 /* For new stations: look them up in the background when a QRZ login is saved. */
 function autoQrzLookup(call){
-  if(!hamnetIsTauri() || !QRZ_HAS_LOGIN || !call) return;
+  if(!hasBackend() || !QRZ_HAS_LOGIN || !call) return;
   const r = findRosterByCall(call);
   if(!r) return;
   qrzLookup(r).catch(e => console.warn('QRZ lookup for ' + call + ' failed:', e));
@@ -3015,7 +3222,7 @@ document.getElementById('qrzFetchMissing').addEventListener('click', async ()=>{
   if(qrzBatchRunning){ qrzBatchStop = true; btn.textContent = 'Stopping…'; return; }
   if(!QRZ_HAS_LOGIN){ qrzRosterFlash('Save your QRZ login in Settings first.', true); return; }
   let saved;
-  try{ saved = new Set(await window.__TAURI__.core.invoke('qrz_saved_photos')); }
+  try{ saved = new Set(await backendInvoke('qrz_saved_photos')); }
   catch(e){ qrzRosterFlash('Could not read the photos folder: ' + e, true); return; }
   // Also redo stations whose photo file isn't on this computer (e.g. restored from another one's backup)
   const todo = sortedRoster().filter(r => r.callsign && (
@@ -3066,7 +3273,7 @@ function wxWind(w){
 function renderWeather(){
   const el = document.getElementById('wxTiles');
   const cfg = wxConfig();
-  if(!hamnetIsTauri() || cfg.source === 'off'){ el.hidden = true; return; }
+  if(!hasBackend() || cfg.source === 'off'){ el.hidden = true; return; }
   el.hidden = false;
   if(!wxLast){
     el.classList.add('stale');
@@ -3093,10 +3300,10 @@ function renderWeather(){
 }
 async function refreshWeather(){
   const cfg = wxConfig();
-  if(!hamnetIsTauri() || cfg.source === 'off'){ renderWeather(); return; }
+  if(!hasBackend() || cfg.source === 'off'){ renderWeather(); return; }
   const gen = ++wxGen;
   try{
-    const w = await window.__TAURI__.core.invoke('weather_fetch', {source: cfg.source, station: cfg.station});
+    const w = await backendInvoke('weather_fetch', {source: cfg.source, station: cfg.station});
     if(gen !== wxGen) return;   // the net or its weather settings changed meanwhile
     wxLast = w; wxError = '';
   }catch(e){
@@ -3112,7 +3319,7 @@ function weatherSync(){
   if(key !== wxKey){
     wxKey = key; wxLast = null; wxError = '';
     clearInterval(wxTimer);
-    if(hamnetIsTauri() && cfg.source !== 'off'){
+    if(hasBackend() && cfg.source !== 'off'){
       refreshWeather();
       wxTimer = setInterval(refreshWeather, WX_REFRESH_MS);
     }
@@ -3136,11 +3343,14 @@ async function renderWeatherSettings(){
   document.getElementById('wxStationHint').textContent = WX_HINTS[cfg.source];
   document.querySelectorAll('.wx-show').forEach(cb => cb.checked = cfg.tiles[cb.dataset.tile] !== false);
   document.getElementById('wxKeyRow').style.display = cfg.source === 'wu' ? '' : 'none';
-  const desktop = hamnetIsTauri();
+  const desktop = hasBackend();
   ['wxSource','wxStation','wxTest','wxKey','wxKeySave','wxKeyClear'].forEach(id => document.getElementById(id).disabled = !desktop);
   if(!desktop){ wxFlash('Weather is available in the desktop app.'); return; }
+  if(HAMNET_REMOTE){
+    ['wxKey','wxKeySave','wxKeyClear'].forEach(id => document.getElementById(id).disabled = true);
+  }
   try{
-    const has = await window.__TAURI__.core.invoke('weather_has_wu_key');
+    const has = await backendInvoke('weather_has_wu_key');
     const keyEl = document.getElementById('wxKey');
     keyEl.value = '';
     keyEl.placeholder = has ? '(saved)' : '';
@@ -3190,6 +3400,7 @@ function renderSettings(){
   renderFileLocations();
   renderQrzLogin();
   renderWeatherSettings();
+  renderShareSettings();
   const sel = document.getElementById('setActiveNet');
   sel.innerHTML = Object.entries(STORE.nets)
     .map(([id,net]) => `<option value="${id}">${escapeHtml(net.settings.netName || '(unnamed net)')}</option>`)
@@ -3344,7 +3555,7 @@ function rosterEntryHtml(r, idx){
         <div class="roster-field"><label>Email</label><input type="text" class="r-email" value="${escapeHtml(r.email||'')}"></div>
         <div class="roster-field"><label>Street</label><input type="text" class="r-street" value="${escapeHtml(r.street||'')}"></div>
         <div class="roster-field narrow"><label>ZIP</label><input type="text" class="r-zip" value="${escapeHtml(r.zip||'')}"></div>
-        ${hamnetIsTauri() ? `<div class="roster-field narrow" style="flex:0 0 auto;">
+        ${hasBackend() ? `<div class="roster-field narrow" style="flex:0 0 auto;">
           <label>QRZ</label>${photoImgHtml(r, 'roster-photo')}
           <button class="secondary r-qrz" title="Look this station up on QRZ.com: fresh photo, plus name, address, and email where blank">Get from QRZ</button>
         </div>` : ''}
@@ -3415,6 +3626,138 @@ document.getElementById('addRosterRow').addEventListener('click', ()=>{
   renderRosterTable();
 });
 
+/* ---------- Remote page: pairing, return to the installed app ---------- */
+/* An installed app that "Connects" opens this page with ?return=<its own page>, so it can
+   come back to its own nets. Only the app's own addresses are accepted. */
+function remoteReturnUrl(){
+  try{ return sessionStorage.getItem('hamnet_return') || ''; }catch(e){ return ''; }
+}
+if(HAMNET_REMOTE){
+  const params = new URLSearchParams(location.search);
+  const ret = params.get('return');
+  if(ret && /^(tauri:\/\/localhost|https?:\/\/tauri\.localhost)(\/|$)/.test(ret)){
+    try{ sessionStorage.setItem('hamnet_return', ret); }catch(e){}
+  }
+  if(params.has('return')) history.replaceState(null, '', location.pathname);
+}
+function showRemoteOverlay(kind){
+  const ov = document.getElementById('remoteOverlay');
+  document.getElementById('remotePairBox').hidden = kind !== 'pair';
+  document.getElementById('remoteWaitBox').hidden = kind !== 'wait';
+  document.querySelectorAll('.remote-host-name').forEach(el => el.textContent = location.host);
+  document.getElementById('remoteBackBtn').hidden = !remoteReturnUrl();
+  ov.classList.add('show');
+  if(kind === 'pair') setTimeout(()=> document.getElementById('remoteCode').focus(), 50);
+}
+async function remotePair(){
+  const code = document.getElementById('remoteCode').value.trim();
+  const msg = document.getElementById('remotePairMsg');
+  msg.textContent = '';
+  if(!code){ msg.textContent = 'Enter the pairing code.'; return; }
+  try{
+    const r = await fetch('/api/pair', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code})});
+    if(r.ok){ location.reload(); return; }
+    msg.textContent = (await r.json().catch(()=>({}))).error || ('Error ' + r.status);
+  }catch(e){ msg.textContent = "Couldn't reach " + location.host + '.'; }
+}
+async function remoteDisconnect(){
+  if(!confirm('Disconnect this device from ' + location.host + "? You'll need the pairing code to connect again.")) return;
+  try{ await fetch('/api/unpair', {method:'POST'}); }catch(e){}
+  const ret = remoteReturnUrl();
+  if(ret) location.href = ret; else location.reload();
+}
+function remoteGoBack(){
+  const ret = remoteReturnUrl();
+  if(ret) location.href = ret;
+}
+document.getElementById('remotePairBtn').addEventListener('click', remotePair);
+document.getElementById('remoteCode').addEventListener('keydown', e => { if(e.key === 'Enter') remotePair(); });
+document.getElementById('remoteBackBtn').addEventListener('click', remoteGoBack);
+
+/* ---------- Settings → Sharing ---------- */
+function shareFlash(text, bad){
+  const el = document.getElementById('shareFlash');
+  el.textContent = text;
+  el.classList.toggle('bad', !!bad);
+}
+function normalizeHostAddress(a){
+  a = (a || '').trim().replace(/\/+$/, '');
+  if(!a) return '';
+  if(!/^https?:\/\//i.test(a)) a = 'http://' + a;
+  try{
+    const u = new URL(a);
+    if(!u.port) u.port = '7373';
+    return u.origin;
+  }catch(e){ return ''; }
+}
+async function renderShareSettings(){
+  const hostBox = document.getElementById('shareHostBox');
+  const connectBox = document.getElementById('shareConnectBox');
+  const remoteBox = document.getElementById('shareRemoteBox');
+  const section = document.getElementById('shareSection');
+  hostBox.hidden = connectBox.hidden = remoteBox.hidden = true;
+  if(HAMNET_REMOTE){
+    section.hidden = false;
+    remoteBox.hidden = false;
+    document.getElementById('shareBackBtn').hidden = !remoteReturnUrl();
+    document.querySelectorAll('.remote-host-name').forEach(el => el.textContent = location.host);
+    return;
+  }
+  if(!hamnetIsTauri()){ section.hidden = true; return; }
+  section.hidden = false;
+  connectBox.hidden = false;
+  try{ document.getElementById('shareConnectAddr').value = localStorage.getItem('hamnet_connect_addr') || ''; }catch(e){}
+  if(hamnetIsAndroid()) return;   // a tablet or phone connects to a computer; it doesn't share
+  hostBox.hidden = false;
+  try{
+    showShareStatus(await window.__TAURI__.core.invoke('share_status'));
+  }catch(e){ shareFlash('Could not read the sharing settings: ' + e, true); }
+}
+function showShareStatus(st){
+  SHARE_ON = !!st.running;
+  document.getElementById('shareEnabled').checked = st.enabled;
+  document.getElementById('sharePort').value = st.port;
+  document.getElementById('shareCode').textContent = st.code;
+  document.getElementById('shareDetails').hidden = !st.running;
+  document.getElementById('shareAddrs').innerHTML = (st.addresses || []).map(ip =>
+    `<div style="font-family:var(--mono);font-size:14px;padding:2px 0;">http://${escapeHtml(ip)}:${st.port}</div>`).join('')
+    || '<div class="hint">No network address found.</div>';
+  if(st.error) shareFlash(st.error, true);
+  else shareFlash(st.running ? 'Sharing is on.' : '');
+}
+async function shareApply(enabled){
+  const port = parseInt(document.getElementById('sharePort').value, 10) || 7373;
+  const st = await window.__TAURI__.core.invoke('share_set', {enabled, port});
+  showShareStatus(st);
+  sharePublish(true);
+}
+document.getElementById('shareEnabled').addEventListener('change', async (e)=>{
+  try{ await shareApply(e.target.checked); }
+  catch(err){ shareFlash(String(err), true); e.target.checked = !e.target.checked; }
+});
+document.getElementById('sharePort').addEventListener('change', async ()=>{
+  try{ await shareApply(document.getElementById('shareEnabled').checked); }
+  catch(err){ shareFlash(String(err), true); }
+});
+document.getElementById('shareNewCode').addEventListener('click', async ()=>{
+  if(!confirm('Make a new pairing code? Devices already connected will need to enter the new code.')) return;
+  try{ showShareStatus(await window.__TAURI__.core.invoke('share_new_code')); shareFlash('New pairing code made.'); }
+  catch(err){ shareFlash(String(err), true); }
+});
+document.getElementById('shareConnectBtn').addEventListener('click', async ()=>{
+  const typed = document.getElementById('shareConnectAddr').value.trim();
+  const base = normalizeHostAddress(typed);
+  if(!base){ shareFlash("Enter the main computer's address, such as 192.168.1.20 or its Tailscale name.", true); return; }
+  try{ localStorage.setItem('hamnet_connect_addr', typed); }catch(e){}
+  shareFlash('Checking ' + base + '…');
+  try{
+    await window.__TAURI__.core.invoke('share_probe', {base});
+  }catch(err){ shareFlash(String(err), true); return; }
+  location.href = base + '/?return=' + encodeURIComponent(location.origin + location.pathname);
+});
+document.getElementById('shareDisconnectBtn').addEventListener('click', remoteDisconnect);
+document.getElementById('shareBackBtn').addEventListener('click', remoteGoBack);
+
 /* ============================= INIT ============================= */
 applyTheme();
 renderHeader();
@@ -3423,6 +3766,30 @@ applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
 applyIdTimerVisibility();
 applyNetTypeUI();
 showTab('preamble');
+if(HAMNET_REMOTE){
+  if(!HAMNET_REMOTE.paired) showRemoteOverlay('pair');
+  else if(!REMOTE_OK){
+    showRemoteOverlay('wait');   // the main computer hasn't handed over its data yet
+    setInterval(async ()=>{ try{ if((await fetch('/api/store', {cache:'no-store'})).ok) location.reload(); }catch(e){} }, 2000);
+  } else {
+    setInterval(remotePoll, 1500);
+    document.querySelectorAll('.qrz-only').forEach(el => el.style.display = '');
+    QRZ_PHOTOS_DIR = 'remote';
+    backendInvoke('qrz_status').then(st=>{
+      QRZ_HAS_LOGIN = !!(st.username && st.hasPassword);
+      if(currentTab === 'main') renderMain(true);
+      if(currentTab === 'roster') renderRosterTable();
+    }).catch(e => console.warn('QRZ setup failed:', e));
+  }
+}
+if(hamnetIsTauri() && !hamnetIsAndroid()){
+  // Sharing: hand the current data to the sharing server, and take saves from other devices
+  window.__TAURI__.event.listen('share-store', e => applyIncomingStore(JSON.parse(e.payload.store)));
+  window.__TAURI__.core.invoke('share_status').then(st=>{
+    SHARE_ON = !!st.running;
+    sharePublish(true);
+  }).catch(()=>{});
+}
 if(hamnetIsTauri()){
   document.querySelectorAll('.qrz-only').forEach(el => el.style.display = '');
   /* On Android the first calls can arrive before the app knows which page is

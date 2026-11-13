@@ -19,7 +19,7 @@ android {
     compileSdk = 37
     namespace = "com.n8vcl.roster_logger"
     defaultConfig {
-        manifestPlaceholders["usesCleartextTraffic"] = "false"
+        manifestPlaceholders["usesCleartextTraffic"] = "true"  // "Connect" opens the main computer's page over plain http on the LAN
         applicationId = "com.n8vcl.roster_logger"
         minSdk = 24
         targetSdk = 37

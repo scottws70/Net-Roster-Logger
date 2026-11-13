@@ -1,6 +1,6 @@
 [package]
 name = "N8VCL-Net-Logger"
-version = "1.36.0"
+version = "1.37.0"
 description = "Net roster and check-in logger for ham radio net control"
 authors = ["N8VCL"]
 license = ""
@@ -26,3 +26,5 @@ tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 ureq = "2"
 tauri-plugin-fs = "2"
+tiny_http = "0.12"
+if-addrs = "0.15.0"

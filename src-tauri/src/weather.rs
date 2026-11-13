@@ -19,8 +19,8 @@ const USER_AGENT: &str = concat!(
 );
 
 #[derive(Serialize, Deserialize, Default)]
-struct WeatherKeys {
-    wu_api_key: String,
+pub(crate) struct WeatherKeys {
+    pub(crate) wu_api_key: String,
 }
 
 #[derive(Serialize, Default, Debug, PartialEq)]
@@ -46,7 +46,7 @@ fn keys_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join("weather.json"))
 }
 
-fn load_keys(app: &AppHandle) -> WeatherKeys {
+pub(crate) fn load_keys(app: &AppHandle) -> WeatherKeys {
     keys_path(app)
         .ok()
         .and_then(|p| fs::read_to_string(p).ok())
@@ -174,7 +174,7 @@ fn parse_nws(station: &str, v: &Value, now: i64) -> Result<Weather, String> {
     })
 }
 
-fn fetch_blocking(key: &str, source: &str, station: &str) -> Result<Weather, String> {
+pub(crate) fn fetch_blocking(key: &str, source: &str, station: &str) -> Result<Weather, String> {
     let station = station.trim();
     if station.is_empty() {
         return Err("Enter a station ID in Settings → Weather.".into());

@@ -2,6 +2,7 @@ use std::fs;
 use std::path::Path;
 
 mod qrz;
+mod share;
 mod weather;
 
 /// Saves a text file into a chosen folder. If a file with `filename` already
@@ -49,6 +50,15 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .manage(qrz::QrzSession::default())
+        .manage(share::ShareState::default())
+        .setup(|app| {
+            // Sharing (serving this computer's nets to other devices) is desktop-only
+            #[cfg(desktop)]
+            share::init(app.handle());
+            #[cfg(not(desktop))]
+            let _ = app;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             save_text_file,
             write_text_file,
@@ -61,7 +71,12 @@ pub fn run() {
             qrz::qrz_lookup,
             weather::weather_has_wu_key,
             weather::weather_save_wu_key,
-            weather::weather_fetch
+            weather::weather_fetch,
+            share::share_status,
+            share::share_set,
+            share::share_new_code,
+            share::share_publish,
+            share::share_probe
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

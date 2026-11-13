@@ -177,6 +177,29 @@ Your QRZ.com username and password, used to look stations up on QRZ for their ph
 
 Like File Locations, the login belongs to the computer, not to a net: it's saved only in the app's settings folder on this computer, applies to all nets, and is never included in Backups. This section works only in the installed app.
 
+### Sharing
+
+Use your main computer's nets from a tablet, phone, or laptop on the same network, or anywhere over Tailscale. One device at a time is in charge: whatever you do on one shows up on the others within a couple of seconds, so you can switch devices mid-net.
+
+**On the main computer** (Windows or Linux app):
+
+1. Tick **Share this computer's nets**. The section then shows the address to use (such as `http://192.168.1.20:7373`; Tailscale addresses start with 100) and a 6-digit **pairing code**.
+2. Leave Net Logger open on that computer; the other devices work on its data. Sharing turns itself back on the next time the app starts.
+3. On Windows, allow Net Logger through the firewall when asked (Private networks).
+
+**On the other device**, either:
+
+- open the address in any web browser (Chrome, Safari, the Fire tablet's Silk) — nothing to install — or
+- in the Net Logger app (such as the Android app), go to **Settings → Sharing**, enter the main computer's address (just `192.168.1.20` or its Tailscale name is enough) and tap **Connect**.
+
+Enter the pairing code once; that device then goes straight in from then on.
+
+- QRZ lookups, photos, and weather on the other device use the main computer's QRZ login and weather key, so they don't need to be set up there.
+- If the main computer can't be reached, a red bar says so; changes made meanwhile are sent when it's back.
+- **Back to This Device's Nets** (in the app) returns to the device's own data, which is kept separately and untouched. **Disconnect** also forgets the pairing.
+- **New Code** makes a new pairing code; every device will need to enter it again. Use it if someone you don't want on your nets has the code.
+- If two people change things on two devices at the same moment, the later save wins.
+
 ### Preamble Script
 
 The text shown on the [Preamble](#preamble) tab.
