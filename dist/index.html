@@ -677,6 +677,11 @@ a.external-link:hover{text-decoration:underline;}
     </div>
 
     <div class="settings-section">
+      <h3>Preamble Script</h3>
+      <div class="field"><textarea id="setPreamble" rows="6"></textarea></div>
+    </div>
+
+    <div class="settings-section">
       <h3 id="displaySettingsTitle">Display</h3>
       <div class="field" style="max-width:300px;">
         <label>Color Theme</label>
@@ -816,11 +821,6 @@ a.external-link:hover{text-decoration:underline;}
         <button class="secondary" id="shareDisconnectBtn">Disconnect</button>
       </div>
       <span class="flash" id="shareFlash"></span>
-    </div>
-
-    <div class="settings-section">
-      <h3>Preamble Script</h3>
-      <div class="field"><textarea id="setPreamble" rows="6"></textarea></div>
     </div>
   </section>
 
@@ -3670,11 +3670,11 @@ async function remoteDisconnect(){
   if(!confirm('Disconnect this device from ' + location.host + "? You'll need the pairing code to connect again.")) return;
   try{ await fetch('/api/unpair', {method:'POST'}); }catch(e){}
   const ret = remoteReturnUrl();
-  if(ret) location.href = ret; else location.reload();
+  if(ret) location.replace(ret); else location.reload();
 }
 function remoteGoBack(){
   const ret = remoteReturnUrl();
-  if(ret) location.href = ret;
+  if(ret) location.replace(ret);
 }
 document.getElementById('remotePairBtn').addEventListener('click', remotePair);
 document.getElementById('remoteCode').addEventListener('keydown', e => { if(e.key === 'Enter') remotePair(); });
@@ -3759,7 +3759,7 @@ document.getElementById('shareConnectBtn').addEventListener('click', async ()=>{
   try{
     await window.__TAURI__.core.invoke('share_probe', {base});
   }catch(err){ shareFlash(String(err), true); return; }
-  location.href = base + '/?return=' + encodeURIComponent(location.origin + location.pathname);
+  location.replace(base + '/?return=' + encodeURIComponent(location.origin + location.pathname));
 });
 document.getElementById('shareDisconnectBtn').addEventListener('click', remoteDisconnect);
 document.getElementById('shareBackBtn').addEventListener('click', remoteGoBack);

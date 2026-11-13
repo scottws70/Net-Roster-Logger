@@ -139,6 +139,10 @@ Switch, create, or delete nets. Each net has its own Roster, check-in history, a
 
 Net Name and NCS Callsign, shown in the header.
 
+### Preamble Script
+
+The text shown on the [Preamble](#preamble) tab.
+
 ### Display
 
 - **Color Theme** — Default (dark), High Visibility (black and yellow, for bright rooms or low-vision readability), Light, Blue, or Terminal (green text on black, in a monospace font, like an old green-screen terminal).
@@ -199,10 +203,6 @@ Enter the pairing code once; that device then goes straight in from then on.
 - **Back to This Device's Nets** (in the app) returns to the device's own data, which is kept separately and untouched. **Disconnect** also forgets the pairing.
 - **New Code** makes a new pairing code; every device will need to enter it again. Use it if someone you don't want on your nets has the code.
 - If two people change things on two devices at the same moment, the later save wins.
-
-### Preamble Script
-
-The text shown on the [Preamble](#preamble) tab.
 
 ## Roster Tab
 

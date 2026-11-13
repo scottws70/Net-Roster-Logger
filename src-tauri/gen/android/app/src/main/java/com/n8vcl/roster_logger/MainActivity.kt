@@ -2,6 +2,7 @@ package com.n8vcl.roster_logger
 
 import android.os.Bundle
 import android.view.View
+import android.webkit.CookieManager
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
@@ -16,5 +17,11 @@ class MainActivity : TauriActivity() {
       v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
       WindowInsetsCompat.CONSUMED
     }
+  }
+
+  // Save cookies (such as a Sharing pairing) to storage now, so closing the app doesn't lose them.
+  override fun onPause() {
+    super.onPause()
+    CookieManager.getInstance().flush()
   }
 }

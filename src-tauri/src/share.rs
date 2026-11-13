@@ -365,7 +365,7 @@ fn handle(app: &AppHandle, inner: &Arc<Inner>, mut req: Request) {
                 if code_ok(inner, &code) {
                     json_response(200, r#"{"ok":true}"#.into()).with_header(header(
                         "Set-Cookie",
-                        &format!("{}={}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict", COOKIE, code),
+                        &format!("{}={}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax", COOKIE, code),
                     ))
                 } else {
                     note_fail(inner);
@@ -375,7 +375,7 @@ fn handle(app: &AppHandle, inner: &Arc<Inner>, mut req: Request) {
         }
 
         (Method::Post, "/api/unpair") => json_response(200, r#"{"ok":true}"#.into())
-            .with_header(header("Set-Cookie", &format!("{}=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict", COOKIE))),
+            .with_header(header("Set-Cookie", &format!("{}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax", COOKIE))),
 
         (_, p) if p.starts_with("/api/") || p.starts_with("/photos/") => {
             if !paired {
