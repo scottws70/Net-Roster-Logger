@@ -917,11 +917,13 @@ window.hamnetSplashDone = (function(){
 <!-- Add-to-roster confirm modal -->
 <div class="modal-overlay" id="addRosterModal">
   <div class="modal-box">
-    <h3>Add to Roster?</h3>
-    <p id="addRosterMsg">This callsign is not on the roster. Add it?</p>
-    <div class="btn-row">
-      <button class="primary" id="addRosterYes">Yes</button>
-      <button class="secondary" id="addRosterNo">No</button>
+    <h3>Not on the Roster</h3>
+    <p id="addRosterMsg" style="font-size:18px;margin:10px 0 4px;"></p>
+    <p id="addRosterSub" class="hint" style="min-height:1.2em;margin:0 0 12px;"></p>
+    <div class="btn-row" style="flex-wrap:wrap;justify-content:center;">
+      <button class="primary" id="addRosterYes">Add to roster and check in</button>
+      <button class="secondary" id="addRosterJust">Just check in for now</button>
+      <button class="secondary" id="addRosterNo">Re-Enter Callsign</button>
     </div>
   </div>
 </div>
@@ -1959,6 +1961,7 @@ function mainGoBack(){
 
 document.addEventListener('keydown', (e)=>{
   if(currentTab !== 'main') return;
+  if(document.querySelector('.modal-overlay.show')) return;   // a prompt is open: its buttons get the keys
   const active = document.activeElement;
   const isEditable = active && (active.tagName==='INPUT' || active.tagName==='TEXTAREA' || active.tagName==='SELECT');
   if(isEditable) return; // let typing happen normally
@@ -2244,9 +2247,8 @@ function makeCheckinForm(prefix, flashId){
       };
       pendingClearFields = clearFields;
       pendingFlashEl = flash;
-      document.getElementById('addRosterMsg').textContent =
-        `${call.toUpperCase()} is not on the roster. Add it?`;
-      document.getElementById('addRosterModal').classList.add('show');
+      pendingCallInput = f.callsign;
+      showNewStationPrompt();
     }
   }
   Object.values(fields()).forEach(inp=>{
@@ -2271,37 +2273,93 @@ makeCheckinForm('early', 'earlyFlash');
 makeCheckinForm('eol', 'eolFlash');
 makeCheckinForm('oos', 'oosFlash');
 
-document.getElementById('addRosterYes').addEventListener('click', ()=>{
-  if(pendingNewStation){
-    const entry = {
-      callsign: pendingNewStation.callsign,
-      name: pendingNewStation.name,
-      spouse:'', city: pendingNewStation.city, location: pendingNewStation.city, state: pendingNewStation.state,
-      url:'', birthday:'', anniversary:'', lastCheckin: todayStr()
-    };
-    // A group picked for a new station becomes its roster Area or Region, so it's placed next time too
-    const g = pendingNewStation.extra && groupById(pendingNewStation.extra.group);
-    if(g && !entry[g.type]) entry[g.type] = String(g.match||'').split(',')[0].trim();
-    insertRosterEntry(entry);
-    autoQrzLookup(entry.callsign);
-    addQni(pendingNewStation.callsign, '', pendingNewStation.destination || '', pendingNewStation.qtc || 0, pendingNewStation.extra);
-    if(pendingNewStation.qtc) addQtc(pendingNewStation.qtc);
-    saveData();
-    renderCheckins();
-  }
+/* A callsign that isn't on the roster: look it up on QRZ (when a login is saved) and show
+   "CALL : First from City", then add-and-check-in, just check in, or re-enter the callsign. */
+let pendingCallInput = null, pendingQrz = null, newStationToken = 0;
+function newStationText(){
+  const p = pendingNewStation, q = pendingQrz && pendingQrz.status !== 'notfound' ? pendingQrz : null;
+  const name = p.name || (q ? qrzFirstName(q) : '');
+  const city = p.city || (q ? qrzTitleCase(q.city) : '');
+  const who = name && city ? `${name} from ${city}` : name || (city ? 'from ' + city : '');
+  return who ? `${p.callsign} : ${who}` : p.callsign;
+}
+function showNewStationPrompt(){
+  const token = ++newStationToken;
+  pendingQrz = null;
+  const msg = document.getElementById('addRosterMsg'), sub = document.getElementById('addRosterSub');
+  msg.textContent = newStationText();
+  sub.textContent = '';
+  document.getElementById('addRosterModal').classList.add('show');
+  document.getElementById('addRosterYes').focus();
+  if(!hasBackend() || !QRZ_HAS_LOGIN) return;
+  sub.textContent = 'Looking up on QRZ…';
+  backendInvoke('qrz_lookup', {callsign: pendingNewStation.callsign, refreshPhoto: false}).then(res=>{
+    if(token !== newStationToken || !pendingNewStation) return;
+    pendingQrz = res;
+    msg.textContent = newStationText();
+    sub.textContent = res.status === 'notfound' ? 'Not found on QRZ. Check the callsign for a typo.' : '';
+  }).catch(e=>{
+    if(token !== newStationToken) return;
+    sub.textContent = "Couldn't reach QRZ.";
+    console.warn('QRZ lookup failed:', e);
+  });
+}
+function closeNewStationPrompt(){
+  newStationToken++;
   document.getElementById('addRosterModal').classList.remove('show');
+  pendingNewStation = null;
+  pendingQrz = null;
+}
+function checkInPendingStation(){
+  const p = pendingNewStation;
+  addQni(p.callsign, '', p.destination || '', p.qtc || 0, p.extra);
+  if(p.qtc) addQtc(p.qtc);
+  saveData();
+  renderCheckins();
+}
+document.getElementById('addRosterYes').addEventListener('click', ()=>{
+  const p = pendingNewStation;
+  if(!p) return;
+  const entry = {
+    callsign: p.callsign,
+    name: p.name,
+    spouse:'', city: p.city, location: p.city, state: p.state,
+    url:'', birthday:'', anniversary:'', lastCheckin: todayStr()
+  };
+  // A group picked for a new station becomes its roster Area or Region, so it's placed next time too
+  const g = p.extra && groupById(p.extra.group);
+  if(g && !entry[g.type]) entry[g.type] = String(g.match||'').split(',')[0].trim();
+  insertRosterEntry(entry);
+  // Use the QRZ answer already in hand; otherwise look it up now in the background
+  if(pendingQrz) applyQrzResult(findRosterByCall(p.callsign) || entry, pendingQrz);
+  else autoQrzLookup(entry.callsign);
+  checkInPendingStation();
   if(pendingFlashEl){
-    pendingFlashEl.textContent = `${pendingNewStation.callsign} added and checked in.` +
-      (pendingNewStation.qtc ? ` QTC ${pendingNewStation.qtc} logged.` : '');
+    pendingFlashEl.textContent = `${p.callsign} added to the roster and checked in.` + (p.qtc ? ` QTC ${p.qtc} logged.` : '');
     pendingFlashEl.classList.remove('bad');
   }
-  pendingNewStation = null;
+  closeNewStationPrompt();
+  if(currentTab === 'roster') renderRosterTable();
   if(pendingClearFields) pendingClearFields();
 });
-document.getElementById('addRosterNo').addEventListener('click', ()=>{
-  document.getElementById('addRosterModal').classList.remove('show');
-  pendingNewStation = null;
+document.getElementById('addRosterJust').addEventListener('click', ()=>{
+  const p = pendingNewStation;
+  if(!p) return;
+  checkInPendingStation();
+  if(pendingFlashEl){
+    pendingFlashEl.textContent = `${p.callsign} checked in (not added to the roster).` + (p.qtc ? ` QTC ${p.qtc} logged.` : '');
+    pendingFlashEl.classList.remove('bad');
+  }
+  closeNewStationPrompt();
   if(pendingClearFields) pendingClearFields();
+});
+/* Re-Enter: keep everything typed, select the callsign so it can be corrected */
+document.getElementById('addRosterNo').addEventListener('click', ()=>{
+  closeNewStationPrompt();
+  if(pendingCallInput){ pendingCallInput.focus(); pendingCallInput.select(); }
+});
+document.getElementById('addRosterModal').addEventListener('keydown', e=>{
+  if(e.key === 'Escape'){ e.preventDefault(); document.getElementById('addRosterNo').click(); }
 });
 
 /* ============================= REPORTS TAB ============================= */
