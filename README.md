@@ -3,7 +3,7 @@
   <li>Click "Releases" on the right.</li>
   <li>Download your preferred package.</li>
   <li>Install (Or Run, in the case of the AppImage)</li>
-  <li>Android (phones and tablets, including Amazon Fire): download the .apk on the device, open it, and allow installing from that app when asked.</li>
+  <li>Android (phones and tablets, including Amazon Fire): download the .apk on the device, open it, and allow installing from that app when asked. The Android app works on your main computer's nets through [Sharing](#sharing); it doesn't keep nets of its own.</li>
   <li>Go to Settings, set up your preferences and populate/import your roster.</li>
 </ul>
 
@@ -187,20 +187,21 @@ Use your main computer's nets from a tablet, phone, or laptop on the same networ
 
 **On the main computer** (Windows or Linux app):
 
-1. Tick **Share this computer's nets**. The section then shows the address to use (such as `http://192.168.1.20:7373`; Tailscale addresses start with 100) and a 6-digit **pairing code**.
+1. Tick **Share this computer's nets**. The section then shows the address to use (such as `http://192.168.1.20:7373`; Tailscale addresses start with 100) and a 6-digit **pairing code**. Only addresses other devices can reach are listed; virtual adapters for WSL, Hyper-V, VirtualBox, VMware, Docker, and Bluetooth are left out.
 2. Leave Net Logger open on that computer; the other devices work on its data. Sharing turns itself back on the next time the app starts.
 3. On Windows, allow Net Logger through the firewall when asked (Private networks).
 
-**On the other device**, either:
+**On the other device**, use one of these:
 
-- open the address in any web browser (Chrome, Safari, the Fire tablet's Silk) — nothing to install — or
-- in the Net Logger app (such as the Android app), go to **Settings → Sharing**, enter the main computer's address (just `192.168.1.20` or its Tailscale name is enough) and tap **Connect**.
+- open the address in any web browser (Chrome, Safari, the Fire tablet's Silk) — nothing to install;
+- in the Android app, enter the main computer's address on the **Connect to Your Main Computer** screen it opens with (just `192.168.1.20` or its Tailscale name is enough) and tap **Connect**. After that it connects to that computer by itself each time it starts; **Change Computer** in Settings → Sharing picks a different one.
+- in the desktop app on another computer, go to **Settings → Sharing**, enter the main computer's address and click **Connect**.
 
 Enter the pairing code once; that device then goes straight in from then on.
 
 - QRZ lookups, photos, and weather on the other device use the main computer's QRZ login and weather key, so they don't need to be set up there.
 - If the main computer can't be reached, a red bar says so; changes made meanwhile are sent when it's back.
-- **Back to This Device's Nets** (in the app) returns to the device's own data, which is kept separately and untouched. **Disconnect** also forgets the pairing.
+- **Back to This Device's Nets** (in the desktop app) returns to that computer's own data, which is kept separately and untouched. **Disconnect** also forgets the pairing.
 - **New Code** makes a new pairing code; every device will need to enter it again. Use it if someone you don't want on your nets has the code.
 - If two people change things on two devices at the same moment, the later save wins.
 

@@ -104,18 +104,31 @@ fn save_config(app: &AppHandle, cfg: &ShareConfig) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// Virtual adapters no other device can reach: containers, virtual machines, WSL,
+/// Bluetooth. Linux names them by prefix; Windows uses friendly names like
+/// "vEthernet (WSL)". VPNs such as Tailscale are real routes and are kept.
+fn is_virtual_adapter(name: &str) -> bool {
+    let n = name.to_ascii_lowercase();
+    const PREFIXES: [&str; 13] = ["docker", "br-", "veth", "virbr", "vmnet", "vboxnet", "lxcbr", "lxdbr",
+        "incusbr", "cni", "flannel", "podman", "waydroid"];
+    const CONTAINS: [&str; 9] = ["vethernet", "virtualbox", "vmware", "hyper-v", "wsl", "parallels",
+        "bluetooth", "loopback", "docker"];
+    PREFIXES.iter().any(|p| n.starts_with(p)) || CONTAINS.iter().any(|c| n.contains(c))
+}
+
 fn local_addresses() -> Vec<String> {
-    let mut v: Vec<String> = if_addrs::get_if_addrs()
+    let ifs: Vec<_> = if_addrs::get_if_addrs()
         .unwrap_or_default()
         .into_iter()
-        .filter(|i| !i.is_loopback())
-        // Skip virtual networks no other device can reach (Docker, VMs)
-        .filter(|i| !["docker", "br-", "veth", "virbr", "vmnet", "vboxnet"].iter().any(|p| i.name.starts_with(p)))
+        .filter(|i| !i.is_loopback() && i.oper_status != if_addrs::IfOperStatus::Down)
         .filter_map(|i| match i.ip() {
-            std::net::IpAddr::V4(ip) if !ip.is_link_local() => Some(ip.to_string()),
+            std::net::IpAddr::V4(ip) if !ip.is_link_local() => Some((i.name, ip.to_string())),
             _ => None,
         })
         .collect();
+    let mut v: Vec<String> = ifs.iter().filter(|(n, _)| !is_virtual_adapter(n)).map(|(_, a)| a.clone()).collect();
+    // Never show nothing: if every adapter looked virtual, list them all.
+    if v.is_empty() { v = ifs.into_iter().map(|(_, a)| a).collect(); }
     v.sort();
     v.dedup();
     v
@@ -500,6 +513,18 @@ fn api(app: &AppHandle, inner: &Arc<Inner>, req: &mut Request, path: &str) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn virtual_adapters_are_hidden() {
+        for n in ["vEthernet (WSL (Hyper-V firewall))", "vEthernet (Default Switch)", "VirtualBox Host-Only Network",
+                  "VMware Network Adapter VMnet8", "Bluetooth Network Connection", "docker0", "br-1a2b", "virbr0"] {
+            assert!(is_virtual_adapter(n), "{n}");
+        }
+        for n in ["Wi-Fi", "Ethernet", "Ethernet 2", "Tailscale", "tailscale0", "wlp2s0", "enp3s0", "eth0", "wlan0",
+                  "ZeroTier One [abc]", "Local Area Connection* 10"] {
+            assert!(!is_virtual_adapter(n), "{n}");
+        }
+    }
 
     #[test]
     fn codes_are_six_digits() {
