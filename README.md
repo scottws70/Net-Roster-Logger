@@ -73,7 +73,10 @@ For stations that check in before or outside the normal roll call. At the top is
 - **Callsign** accepts the full callsign (`W1AW`) or just the suffix (`AW`), as long as that suffix matches exactly one station on the Roster. If it matches more than one, you'll be asked to type the full callsign instead.
 - **Name lookup:** if you don't have the callsign handy, leave Callsign blank, type the station's **Name**, **Last Name**, or both (`Mark`, `Smith`, or `Mark Smith`), and press **Enter**. If exactly one station on the Roster matches, it's checked in. If several do, you'll see their callsigns and be asked to type the callsign instead. Each name must match the whole field (capitalization doesn't matter) — `Mar` won't find "Mark".
 - A **known** callsign is checked in immediately.
-- An **unknown** callsign prompts “Add to Roster?” — choosing Yes adds it using the Name/City/State you typed and checks it in; No just clears the fields. If it's a new station, and they want to be added to the roster, click "No" first, then re-enter the call, get the name, city, state, press enter, and answer Yes to "Add to Roster?" With a [QRZ login](#qrzcom-login) saved, the new station's QRZ photo is fetched in the background, and its name, email, and address are filled in from QRZ as described under [QRZ Photos, Names, Addresses, and Email](#qrz-photos-names-addresses-and-email).
+- An **unknown** callsign opens the **Not on the Roster** prompt, showing the station as **CALL : First name from City**. The Name and City you typed are used first; with a [QRZ login](#qrzcom-login) saved, the rest is looked up on QRZ while the prompt is open (it says so if QRZ doesn't know the callsign, a good hint of a typo). Choose:
+  - **Add to roster and check in** (the default; Enter) — adds the station using what you typed plus QRZ's photo, name, email, and address, as described under [QRZ Photos, Names, Addresses, and Email](#qrz-photos-names-addresses-and-email), and checks it in.
+  - **Just check in for now** — checks it in today without adding it to the Roster.
+  - **Re-Enter Callsign** (or Esc) — closes the prompt and keeps what you typed, with the callsign selected so you can fix a typo and press Enter again.
 
 ## Main Tab (Roll Call)
 
@@ -99,13 +102,13 @@ When you reach the end of the Roster, Main switches automatically to **End of th
 
 ### Out of Sequence, Early, or Late
 
-Below the station card is a small check-in box for stations that break in during roll call — a "CONTACT," a late arrival, or "check in my wife too" — so you can log them without leaving the Main tab. It works exactly like [Early Check-ins](#early-check-ins): the same Callsign / Name / City / State fields, suffix matching, name lookup, and “Add to Roster?” prompt.
+Below the station card is a small check-in box for stations that break in during roll call — a "CONTACT," a late arrival, or "check in my wife too" — so you can log them without leaving the Main tab. It works exactly like [Early Check-ins](#early-check-ins): the same Callsign / Name / City / State fields, suffix matching, name lookup, and “Not on the Roster” prompt.
 
 Anyone checked in this way is skipped automatically when roll call reaches them. While your cursor is in one of these fields, Space and the arrow keys type normally instead of moving the roll call; click anywhere outside the box to go back to using the shortcuts.
 
 ## End of the List Tab
 
-Works exactly like [Early Check-ins](#early-check-ins) — same four fields, same suffix matching, same “Add to Roster?” prompt — for catching late, missed, or new stations.
+Works exactly like [Early Check-ins](#early-check-ins) — same four fields, same suffix matching, same “Not on the Roster” prompt — for catching late, missed, or new stations.
 
 The app switches here automatically the moment you reach the end of the Roster on the Main tab, whether by Space or →.
 
@@ -226,7 +229,7 @@ With a [QRZ login](#qrzcom-login) saved (installed app only), the app can look s
 - **Get from QRZ** on a station's card looks that one station up. It downloads a fresh copy of the station's QRZ photo and shows it on the card and on the Main roll-call card, and fills in **Name**, **Last Name**, **Email**, and the address where they're blank. Names and email you've typed are never overwritten. QRZ's nickname is used for Name when the station has one, middle initials are dropped, and all-caps license names and addresses are tidied up (`HIRAM P` → `Hiram`, `RR 1 BOX 5` → `RR 1 Box 5`, `MCCOOK` → `McCook`).
 - **Addresses:** a station with **no Street** on file gets QRZ's whole mailing address (Street, City, State, ZIP). The City you had typed — often an informal one like "N of McCook" or "NE City" — stays in the station's **Location**, so the Main card still reads the way the net knows them. If the State you had was different, it's kept in the station's [Notes](#main-tab-roll-call) as `Listed as: N of McCook, NE`. Spelling differences in spacing or punctuation don't count ("Springhill" and "Spring Hill" are the same). A station that already has a Street keeps its address; only its blank parts are filled, and only when its street and city match QRZ's.
 - **Fetch Missing from QRZ** looks up every station that hasn't been looked up yet (stations looked up by an earlier version of the app that filled in fewer fields count as not yet) and is missing a photo, a name, an email, or part of its address, one at a time with a short pause between, so QRZ isn't flooded. It shows its progress and a summary at the end; click **Stop** to end it early. It reuses photos already saved rather than downloading them again. A station QRZ has no photo for isn't asked about again; use **Get from QRZ** on its card to retry. Each net has its own Roster, so run it once in each net.
-- **New stations are looked up automatically:** when you answer Yes to “Add to Roster?” from Early Check-ins, the Out of Sequence box, or End of the List, or type a callsign into a station card.
+- **New stations are looked up automatically:** when you choose **Add to roster and check in** from Early Check-ins, the Out of Sequence box, or End of the List, or type a callsign into a station card.
 
 Photos are downloaded once and saved on this computer, so they show during nets with no internet connection. They aren't included in Backups or roster CSV exports; after restoring a backup on another computer, Fetch Missing from QRZ downloads them again.
 
@@ -237,7 +240,7 @@ For nets whose purpose is passing formal traffic rather than calling a roster. T
 **What changes:**
 
 - **Tabs:** only **Preamble**, **Main**, **Reports**, and **Settings** are shown. Birthdays & Anniversaries, Traffic, End of the List, and the roll-call Main tab are hidden.
-- **Main** is the Early Check-ins screen, renamed, with the fields **Callsign**, **Name**, and **State** (City is hidden), plus the traffic fields described below. Suffix matching, name lookup, and the “Add to Roster?” prompt work the same as in [Early Check-ins](#early-check-ins). Press **Enter** from any field to check the station in.
+- **Main** is the Early Check-ins screen, renamed, with the fields **Callsign**, **Name**, and **State** (City is hidden), plus the traffic fields described below. Suffix matching, name lookup, and the “Not on the Roster” prompt work the same as in [Early Check-ins](#early-check-ins). Press **Enter** from any field to check the station in.
 - **Reports → Today** adds a one-line net report you can copy and send, in the form:
 
   `<Net Name> net report for <Mon D> utc <check-ins> <QTC> <callsigns…> <NCS>/NCS`
@@ -274,7 +277,7 @@ With **no** groups set up, Main keeps the simple single **QTC** and **Destinatio
 
 With Traffic Groups set up, the Main check-in form has:
 
-- **Group** — filled in automatically from the Roster when you leave the Callsign field; change it if needed. A new station added with “Add to Roster?” keeps the group you picked as its Area or Region.
+- **Group** — filled in automatically from the Roster when you leave the Callsign field; change it if needed. A new station added from the “Not on the Roster” prompt keeps the group you picked as its Area or Region.
 - **Traffic listed, by destination** — one box per group. Enter how many messages the station has for each place, or leave them blank for QRU. The total is added to the day's QTC.
 
 The **Check-ins Today** panel shows each station as Callsign, then Name - State · Group, then `QTC - R9 2, WAN 1` (a ✓ marks traffic that's been sent) or `QRU`.
