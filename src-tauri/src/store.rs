@@ -386,12 +386,42 @@ pub fn store_folder(app: AppHandle) -> Result<String, String> {
     Ok(root(&app)?.to_string_lossy().into_owned())
 }
 
+/// Environment for a program started from inside an AppImage: the AppImage points
+/// library, Python, GTK and similar settings at its own bundled copies, which make the
+/// system's file manager fail to start. Every setting is given back without the parts
+/// that point into the AppImage (`None` = remove the variable altogether).
+#[cfg(any(target_os = "linux", test))]
+fn without_appimage_paths(vars: impl Iterator<Item = (String, String)>, appdir: &str) -> Vec<(String, Option<String>)> {
+    let appdir = appdir.trim_end_matches('/');
+    if appdir.is_empty() {
+        return Vec::new();
+    }
+    vars.filter(|(k, v)| k != "APPDIR" && v.contains(appdir))
+        .map(|(k, v)| {
+            let kept: Vec<&str> = v.split(':').filter(|part| !part.is_empty() && !part.starts_with(appdir)).collect();
+            (k, (!kept.is_empty()).then(|| kept.join(":")))
+        })
+        .collect()
+}
+
 /// Opens that folder in the system's file manager.
 #[tauri::command]
 pub fn store_open_folder(app: AppHandle) -> Result<(), String> {
-    use tauri_plugin_opener::OpenerExt;
     let dir = root(&app)?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "linux")]
+    if let Ok(appdir) = std::env::var("APPDIR") {
+        let mut cmd = std::process::Command::new("xdg-open");
+        cmd.arg(&dir);
+        for (key, value) in without_appimage_paths(std::env::vars(), &appdir) {
+            match value {
+                Some(v) => cmd.env(key, v),
+                None => cmd.env_remove(key),
+            };
+        }
+        return cmd.spawn().map(|_| ()).map_err(|e| format!("Couldn't start the file manager: {e}"));
+    }
+    use tauri_plugin_opener::OpenerExt;
     app.opener().open_path(dir.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
 }
 
@@ -557,6 +587,27 @@ mod tests {
         assert_eq!(order(&after), order(&before), "nets stay in the same order");
         assert_eq!(fs::read_to_string(t.root().join(PRE_MIGRATION_FILE)).unwrap(), text);
         println!("{} net(s) moved and read back identical, {} bytes", order(&after).len(), text.len());
+    }
+
+    #[test]
+    fn strips_appimage_paths_from_the_environment() {
+        let appdir = "/tmp/.mount_N8VCL abc";
+        let vars = [
+            ("PATH", "/tmp/.mount_N8VCL abc/usr/bin/:/tmp/.mount_N8VCL abc/bin/:/usr/local/bin:/usr/bin"),
+            ("PYTHONHOME", "/tmp/.mount_N8VCL abc/usr/"),
+            ("PYTHONPATH", "/tmp/.mount_N8VCL abc/usr/share/pyshared/:"),
+            ("XDG_DATA_DIRS", "/tmp/.mount_N8VCL abc/usr/share/:/usr/share:/usr/local/share"),
+            ("HOME", "/home/someone"),
+            ("APPDIR", "/tmp/.mount_N8VCL abc"),
+        ];
+        let out = without_appimage_paths(vars.iter().map(|(k, v)| (k.to_string(), v.to_string())), appdir);
+        let get = |k: &str| out.iter().find(|(key, _)| key == k).map(|(_, v)| v.clone());
+        assert_eq!(get("PATH"), Some(Some("/usr/local/bin:/usr/bin".into())));
+        assert_eq!(get("PYTHONHOME"), Some(None));
+        assert_eq!(get("PYTHONPATH"), Some(None));
+        assert_eq!(get("XDG_DATA_DIRS"), Some(Some("/usr/share:/usr/local/share".into())));
+        assert_eq!(get("HOME"), None, "untouched variables aren't listed");
+        assert_eq!(get("APPDIR"), None);
     }
 
     #[test]
