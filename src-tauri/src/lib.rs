@@ -44,6 +44,46 @@ fn write_text_file(path: String, contents: String) -> Result<(), String> {
     fs::write(&path, contents).map_err(|e| e.to_string())
 }
 
+/// One CSV file read from a folder, for the Net Manager's Summary.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CsvFile {
+    name: String,
+    /// Last modified time, in milliseconds since 1970
+    modified: u64,
+    contents: String,
+}
+
+/// Reads every .csv file directly inside `dir` (not in subfolders), skipping very large
+/// files and ones that aren't text.
+#[tauri::command]
+fn read_csv_folder(dir: String) -> Result<Vec<CsvFile>, String> {
+    let entries = fs::read_dir(&dir).map_err(|e| format!("Couldn't open {}: {}", dir, e))?;
+    let mut files = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let is_csv = path
+            .extension()
+            .and_then(|x| x.to_str())
+            .is_some_and(|x| x.eq_ignore_ascii_case("csv"));
+        let Ok(meta) = entry.metadata() else { continue };
+        if !is_csv || !meta.is_file() || meta.len() > 5_000_000 {
+            continue;
+        }
+        let Ok(contents) = fs::read_to_string(&path) else { continue };
+        let modified = meta
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        let name = entry.file_name().to_string_lossy().into_owned();
+        files.push(CsvFile { name, modified, contents });
+    }
+    files.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(files)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -53,9 +93,14 @@ pub fn run() {
         .manage(qrz::QrzSession::default())
         .manage(share::ShareState::default())
         .setup(|app| {
-            // Sharing (serving this computer's nets to other devices) is desktop-only
+            // Sharing (serving this computer's nets to other devices) and in-app
+            // updates are desktop-only
             #[cfg(desktop)]
-            share::init(app.handle());
+            {
+                share::init(app.handle());
+                app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+                app.handle().plugin(tauri_plugin_process::init())?;
+            }
             #[cfg(not(desktop))]
             let _ = app;
             Ok(())
@@ -63,6 +108,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             save_text_file,
             write_text_file,
+            read_csv_folder,
             qrz::qrz_status,
             qrz::qrz_save_credentials,
             qrz::qrz_clear_credentials,

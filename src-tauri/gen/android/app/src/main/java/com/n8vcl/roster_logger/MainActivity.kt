@@ -3,6 +3,7 @@ package com.n8vcl.roster_logger
 import android.os.Bundle
 import android.view.View
 import android.webkit.CookieManager
+import android.webkit.WebView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
@@ -23,5 +24,10 @@ class MainActivity : TauriActivity() {
   override fun onPause() {
     super.onPause()
     CookieManager.getInstance().flush()
+  }
+
+  // Lets the page download and install a newer version of the app (see ApkUpdater)
+  override fun onWebViewCreate(webView: WebView) {
+    webView.addJavascriptInterface(ApkUpdater(this, webView), "NetRosterUpdater")
   }
 }

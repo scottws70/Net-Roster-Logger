@@ -7,6 +7,16 @@
   <li>Go to Settings, set up your preferences and populate/import your roster.</li>
 </ul>
 
+<h3>Updates</h3>
+<p>Starting with version 1.41.0, the app checks for a newer version each time it starts. When there is one, a bar at the top says so: press <b>Install Update</b> and the app downloads it, installs it, and restarts. <b>What's New</b> opens the release notes, and <b>Later</b> puts it off until the next start. The update is checked against the project's signing key before it's installed, so only genuine releases are accepted.</p>
+<ul>
+  <li>Windows shows its installer's progress window while it works (the .msi version also asks permission to make changes).</li>
+  <li>Linux .deb and .rpm installs ask for your password, as any package install does. The AppImage updates itself in place.</li>
+  <li>Android downloads the new .apk and opens Android's installer: press Install (or Update). The first time, Android may ask you to allow this app to install apps; turn that on, come back, and press Install Update again. On Android the check happens on the connect screen, and the app connects after you press Later.</li>
+  <li>Settings has a <b>Check for Updates</b> button next to the version number.</li>
+</ul>
+<p>Versions 1.40.0 and earlier don't have this, so update to 1.41.0 by hand once.</p>
+
 <p>The Windows version will warn you that it's dangerous to install this. That's because it's unsigned. In order to make it signed and trusted, I would have to pay Microsoft. That's not something I do. When you see the pop up that tells you it blocked from installing and warning you, click More Info, then Run Anyway and it will install and work just fine.
 
 # N8VCL Net Roster Logger — User Manual
@@ -15,7 +25,7 @@ Updated Oct 20, 2026 for v1.30.1 · @Scott
 
 ## Overview
 
-Net Logger is a self-contained app for a ham radio net control station to run a Roll-Call based net: track who checks in, log traffic (QTC), flag birthdays and anniversaries, and keep the roster up to date, all from one screen.
+Net Roster Logger is a self-contained app for a ham radio net control station to run a Roll-Call based net: track who checks in, log traffic (QTC), flag birthdays and anniversaries, and keep the roster up to date, all from one screen.
 
 It runs in a single window, with no internet connection required. Roster, check-in history, and settings are all stored locally.
 
@@ -124,17 +134,18 @@ Drag the panel's left edge to resize it; the text scales up or down with the wid
 
 - **Today** — how many stations checked in today, and today's QTC count. On a [Traffic Net](#traffic-net-mode), it also shows a one-line net report ready to send.
 - **Net Report** — one row per net session for a chosen month: Date, Day, NCS, Check-ins, Traffic, Time (QTR), the stations that checked in from each area/region, and the traffic To and From each Area (or each group, on a net with no Area groups, such as one divided by state), with a totals row at the bottom. Pick a **Month**, and use **Days** to show only one day of the week (e.g. Fridays). **Export CSV** saves the report, ready to open in Excel, LibreOffice, or Zoho. Area/region columns appear on a [Traffic Net](#traffic-net-mode) with Traffic Groups set up.
+- **Net Manager's Summary** — combines the Net Report exports from every NCS into one report for the month. Each NCS uses **Net Report → Export CSV** and sends the file to the net manager, who puts them all in one folder and presses **Choose Folder…** (in a web browser, select all the files instead). The report is titled "[Net Name] Net Report for [Month] [Year]", with one line per NCS: **Call**, **Report Date** (the date of that NCS's file), **Sessions**, **QNI** (check-ins), **QTC** (traffic), and **AVG** (average check-ins per session). The bottom line totals Sessions, QNI, and QTC and averages the AVGs. Other CSV files in the folder are skipped, a session found in two files is counted once, and if the files cover more than one month, the month most sessions are in is used. **Export CSV** saves the summary.
 - **This Month** — total check-ins and QTC for the current calendar month, plus **Net Sessions**: the number of distinct days this month with at least one check-in — a stand-in for how many times the net actually ran. Check-ins counts every check-in, so a station that checked in on 4 nets this month counts 4 times.
 - **Stale Check-ins (>30 / >90 days)** — lists every station whose Last Check-in is older than that many days (or who has never checked in), sorted most-overdue first. Each row has a **✕** to remove that one station from the Roster, or use **Remove All Listed** to clear the whole batch at once. **Mark All Listed Inactive** is the gentler option: it hides them all from the Main roll call without deleting them, and each one comes back automatically the next time it checks in (stations already Inactive are marked "(inactive)" in the list). All three ask for confirmation first.
 - **Backup All Data** / **Restore All Data** — see [Backup & Restore and Data Safety](#backup-restore-and-data-safety).
 
 ## Settings Tab
 
-The app's version number is shown at the top right, across from the Settings heading.
+The app's version number is shown at the top right, across from the Settings heading, with a **Check for Updates** button beside it (see [Updates](#updates)).
 
 ### Net Profile
 
-Switch, create, or delete nets. Each net has its own Roster, check-in history, and settings — useful for running more than one net (e.g. a daily net and a weekly one, or a Morning net and Evening net, etc) from the same app. **+ New Net** creates a blank one; **Delete This Net** removes it and its data permanently (you can't delete your only net). The same switcher is also available as the Net Name dropdown in the header.
+Switch, create, or delete nets. Each net has its own Roster, check-in history, and settings — useful for running more than one net (e.g. a daily net and a weekly one, or a Morning net and Evening net, etc) from the same app. **+ New Net** creates a blank one; **Delete This Net** removes it and its data permanently, after asking twice — the second time, "Are you SURE you want to delete [Net Name]?", with No as the default (you can't delete your only net). The same switcher is also available as the Net Name dropdown in the header.
 
 ### Net Type
 
@@ -193,8 +204,8 @@ Use your main computer's nets from a tablet, phone, or laptop on the same networ
 **On the main computer** (Windows or Linux app):
 
 1. Tick **Share this computer's nets**. The section then shows the address to use (such as `http://192.168.1.20:7373`; Tailscale addresses start with 100) and a 6-digit **pairing code**. Only addresses other devices can reach are listed; virtual adapters for WSL, Hyper-V, VirtualBox, VMware, Docker, and Bluetooth are left out.
-2. Leave Net Logger open on that computer; the other devices work on its data. Sharing turns itself back on the next time the app starts.
-3. On Windows, allow Net Logger through the firewall when asked (Private networks).
+2. Leave Net Roster Logger open on that computer; the other devices work on its data. Sharing turns itself back on the next time the app starts.
+3. On Windows, allow Net Roster Logger through the firewall when asked (Private networks).
 
 **On the other device**, use one of these:
 
@@ -303,7 +314,7 @@ Back up <em><strong>frequently. At least once a week.</em></strong>
 
 **Recommended habit:** keep one fixed filename/location as your working copy rather than a new file per version, and back up right after every net.
 
-If you need someone to substitute for you and they are running N8VCL Roster Net Logger, you can send the backup JSON  and have them Restore to get all the settings you have, or you can Export Roster CSV and send that and they will have the most up-to-date roster, while all other settings remain default.
+If you need someone to substitute for you and they are running N8VCL Net Roster Logger, you can send the backup JSON  and have them Restore to get all the settings you have, or you can Export Roster CSV and send that and they will have the most up-to-date roster, while all other settings remain default.
 
 # Recommended Use:
 

@@ -20,6 +20,9 @@
         },
         {
           "url": "https://qrz.com/*"
+        },
+        {
+          "url": "https://github.com/scottws70/Net-Roster-Logger/releases*"
         }
       ]
     }

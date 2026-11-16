@@ -226,7 +226,8 @@ pub fn share_publish(state: State<ShareState>, store: String) -> u64 {
     s.version
 }
 
-/// Checks that `base` (e.g. "http://192.168.1.20:7373") is a Net Logger that's sharing.
+/// Checks that `base` (e.g. "http://192.168.1.20:7373") is a Net Roster Logger that's sharing.
+/// (The "app" value stays "N8VCL Net Logger" so older and newer versions still recognize each other.)
 #[tauri::command]
 pub async fn share_probe(base: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -241,8 +242,8 @@ pub async fn share_probe(base: String) -> Result<(), String> {
                 ureq::Error::Status(code, _) => format!("{} answered with error {}.", base, code),
             })?;
         let v: Value = serde_json::from_str(&resp.into_string().map_err(|e| e.to_string())?)
-            .map_err(|_| format!("{} isn't a Net Logger.", base))?;
-        if v["app"] == "N8VCL Net Logger" { Ok(()) } else { Err(format!("{} isn't a Net Logger.", base)) }
+            .map_err(|_| format!("{} isn't a Net Roster Logger.", base))?;
+        if v["app"] == "N8VCL Net Logger" { Ok(()) } else { Err(format!("{} isn't a Net Roster Logger.", base)) }
     })
     .await
     .map_err(|e| e.to_string())?
@@ -435,7 +436,7 @@ fn api(app: &AppHandle, inner: &Arc<Inner>, req: &mut Request, path: &str) -> Re
                 .map(|v| v["nets"].is_object() && v["activeNetId"].is_string())
                 .unwrap_or(false);
             if !ok {
-                return error(400, "That isn't Net Logger data.");
+                return error(400, "That isn't Net Roster Logger data.");
             }
             let version = {
                 let mut s = inner.store.lock().unwrap();
