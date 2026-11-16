@@ -14,10 +14,11 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::hash::{BuildHasher, Hasher};
 use std::io::Read;
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -30,6 +31,10 @@ const DEFAULT_PORT: u16 = 7373;
 const PAGE: &str = include_str!("../../dist/index.html");
 const MAX_BODY: u64 = 64 * 1024 * 1024;
 const COOKIE: &str = "nl_code";
+/// Wrong pairing codes allowed from one device within FAIL_WINDOW before it's locked out
+const MAX_FAILS: usize = 5;
+const FAIL_WINDOW: Duration = Duration::from_secs(60);
+const LOCKOUT: Duration = Duration::from_secs(5 * 60);
 
 #[derive(Serialize, Deserialize, Clone)]
 struct ShareConfig {
@@ -61,9 +66,16 @@ struct Inner {
     store: Mutex<StoreCopy>,
     server: Mutex<Option<Arc<Server>>>,
     error: Mutex<Option<String>>,
-    /// Times of recent wrong pairing codes, for throttling guesses
-    fails: Mutex<VecDeque<Instant>>,
+    /// Recent wrong pairing codes from each device (by address), for locking out guessing.
+    /// Kept per device so one device's wrong codes never lock out the others.
+    guesses: Mutex<HashMap<IpAddr, Guesses>>,
     code: Mutex<String>,
+}
+
+#[derive(Default)]
+struct Guesses {
+    fails: VecDeque<Instant>,
+    locked_until: Option<Instant>,
 }
 
 #[derive(Serialize)]
@@ -286,17 +298,43 @@ fn presented_code(req: &Request) -> Option<String> {
     })
 }
 
-/// Too many wrong codes lately? (5 in 10 seconds locks guessing out for a while.)
-fn throttled(inner: &Inner) -> bool {
-    let mut f = inner.fails.lock().unwrap();
-    while f.front().is_some_and(|t| t.elapsed() > Duration::from_secs(10)) {
-        f.pop_front();
+/// Is this device locked out for guessing? (MAX_FAILS wrong codes within FAIL_WINDOW
+/// locks it out for LOCKOUT; everything it sends meanwhile is refused, right code or not.)
+fn locked(inner: &Inner, ip: IpAddr) -> bool {
+    let mut all = inner.guesses.lock().unwrap();
+    let Some(g) = all.get_mut(&ip) else { return false };
+    match g.locked_until {
+        Some(t) if t > Instant::now() => true,
+        Some(_) => {
+            all.remove(&ip);
+            false
+        }
+        None => false,
     }
-    f.len() >= 5
 }
 
-fn note_fail(inner: &Inner) {
-    inner.fails.lock().unwrap().push_back(Instant::now());
+fn note_fail(inner: &Inner, ip: IpAddr) {
+    let mut all = inner.guesses.lock().unwrap();
+    let now = Instant::now();
+    // Keep the table small: forget devices whose lockout and wrong codes have aged out
+    if all.len() > 500 {
+        all.retain(|_, g| {
+            g.locked_until.is_some_and(|t| t > now) || g.fails.back().is_some_and(|t| now.duration_since(*t) < FAIL_WINDOW)
+        });
+    }
+    let g = all.entry(ip).or_default();
+    while g.fails.front().is_some_and(|t| now.duration_since(*t) > FAIL_WINDOW) {
+        g.fails.pop_front();
+    }
+    g.fails.push_back(now);
+    if g.fails.len() >= MAX_FAILS {
+        g.locked_until = Some(now + LOCKOUT);
+        g.fails.clear();
+    }
+}
+
+fn clear_fails(inner: &Inner, ip: IpAddr) {
+    inner.guesses.lock().unwrap().remove(&ip);
 }
 
 fn code_ok(inner: &Inner, given: &str) -> bool {
@@ -315,8 +353,12 @@ fn same_origin(req: &Request) -> bool {
 }
 
 fn read_body(req: &mut Request) -> Result<String, String> {
+    read_body_up_to(req, MAX_BODY)
+}
+
+fn read_body_up_to(req: &mut Request, limit: u64) -> Result<String, String> {
     let mut s = String::new();
-    req.as_reader().take(MAX_BODY).read_to_string(&mut s).map_err(|e| e.to_string())?;
+    req.as_reader().take(limit).read_to_string(&mut s).map_err(|e| e.to_string())?;
     Ok(s)
 }
 
@@ -349,11 +391,16 @@ fn handle(app: &AppHandle, inner: &Arc<Inner>, mut req: Request) {
     let path = path.to_string();
     let method = req.method().clone();
 
-    let given = presented_code(&req);
+    let ip = req.remote_addr().map(|a| a.ip()).unwrap_or(IpAddr::from([0, 0, 0, 0]));
+
+    // Pairing and unpairing don't depend on the code a device already carries: an old
+    // cookie left over from before "New Code" mustn't count as a wrong guess there.
+    let pairing = method == Method::Post && (path == "/api/pair" || path == "/api/unpair");
+    let given = if pairing { None } else { presented_code(&req) };
     let paired = match &given {
-        Some(c) if !throttled(inner) => {
+        Some(c) if !locked(inner, ip) => {
             let ok = code_ok(inner, c);
-            if !ok { note_fail(inner); }
+            if !ok { note_fail(inner, ip); }
             ok
         }
         _ => false,
@@ -372,21 +419,22 @@ fn handle(app: &AppHandle, inner: &Arc<Inner>, mut req: Request) {
         (Method::Post, "/api/pair") => {
             if !same_origin(&req) {
                 error(403, "Not allowed.")
-            } else if throttled(inner) {
-                error(429, "Too many wrong codes. Wait a few seconds and try again.")
+            } else if locked(inner, ip) {
+                error(429, "Too many wrong codes from this device. Wait 5 minutes and try again.")
             } else {
-                let body = read_body(&mut req).unwrap_or_default();
+                let body = read_body_up_to(&mut req, 4096).unwrap_or_default();
                 let code = serde_json::from_str::<Value>(&body)
                     .ok()
                     .and_then(|v| v["code"].as_str().map(|s| s.trim().to_string()))
                     .unwrap_or_default();
                 if code_ok(inner, &code) {
+                    clear_fails(inner, ip);
                     json_response(200, r#"{"ok":true}"#.into()).with_header(header(
                         "Set-Cookie",
                         &format!("{}={}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax", COOKIE, code),
                     ))
                 } else {
-                    note_fail(inner);
+                    note_fail(inner, ip);
                     error(403, "That code doesn't match. Check the code in Settings → Sharing on the main computer.")
                 }
             }
@@ -543,6 +591,24 @@ mod tests {
                   "ZeroTier One [abc]", "Local Area Connection* 10"] {
             assert!(!is_virtual_adapter(n), "{n}");
         }
+    }
+
+    #[test]
+    fn wrong_codes_lock_out_only_that_device() {
+        let inner = Inner::default();
+        let (a, b) = (IpAddr::from([192, 168, 1, 50]), IpAddr::from([192, 168, 1, 51]));
+        for _ in 0..MAX_FAILS - 1 {
+            note_fail(&inner, a);
+            assert!(!locked(&inner, a));
+        }
+        note_fail(&inner, a);
+        assert!(locked(&inner, a));
+        assert!(!locked(&inner, b), "another device is unaffected");
+        // A right code clears the count, so a few typos never add up over time
+        note_fail(&inner, b);
+        clear_fails(&inner, b);
+        for _ in 0..MAX_FAILS - 1 { note_fail(&inner, b); }
+        assert!(!locked(&inner, b));
     }
 
     #[test]

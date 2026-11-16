@@ -115,8 +115,13 @@ pub(crate) fn photos_dir(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 /// One request to the XML service (blocking).
+/// Requests give up after 30 seconds, so a stalled connection can't hang a lookup.
+fn agent() -> ureq::Agent {
+    ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(30)).build()
+}
+
 fn qrz_get(params: &[(&str, &str)]) -> Result<String, String> {
-    let mut req = ureq::get(QRZ_URL).query("agent", AGENT);
+    let mut req = agent().get(QRZ_URL).query("agent", AGENT);
     for (k, v) in params {
         req = req.query(k, v);
     }
@@ -217,7 +222,7 @@ pub(crate) fn lookup_blocking(app: &AppHandle, callsign: &str, refresh_photo: bo
         }
     }
 
-    let resp = ureq::get(&url).call().map_err(|e| format!("Couldn't download the photo: {}", e))?;
+    let resp = agent().get(&url).call().map_err(|e| format!("Couldn't download the photo: {}", e))?;
     let ext = image_ext(&url, resp.content_type());
     let mut bytes = Vec::new();
     // QRZ photos are normally well under this; the cap guards against a runaway download

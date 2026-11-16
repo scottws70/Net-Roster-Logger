@@ -264,8 +264,8 @@
     padding:2px 7px;font-family:var(--mono);color:var(--text);
   }
   .empty-msg{color:var(--text-dim);font-size:14px;padding:20px 0;}
-  #remoteBanner{background:var(--bad);color:#fff;text-align:center;font-size:13px;padding:5px 10px;flex-shrink:0;}
-  #remoteBanner[hidden]{display:none;}
+  #remoteBanner,#saveFailBanner{background:var(--bad);color:#fff;text-align:center;font-size:13px;padding:5px 10px;flex-shrink:0;}
+  #remoteBanner[hidden],#saveFailBanner[hidden]{display:none;}
   /* Touch gestures on the roll-call card (shown only on touch screens) */
   .keyhint .gest{display:none;color:var(--text-dim);}
   html.touch .keyhint .gest{display:inline;}
@@ -475,6 +475,7 @@ window.hamnetSplashDone = (function(){
   });
 })();
 </script>
+<div id="saveFailBanner" hidden>Your latest changes could NOT be saved on this device — its storage is full or blocked. Make a Backup now (Reports tab) so nothing is lost.</div>
 <div id="remoteBanner" hidden>Lost connection to the main computer — retrying… Changes here will be sent when it's back.</div>
 <div class="modal-overlay" id="remoteOverlay">
   <div class="modal-box" style="max-width:420px;">
@@ -685,11 +686,11 @@ window.hamnetSplashDone = (function(){
 
     <div class="settings-section" style="margin-top:26px;padding-top:22px;border-top:1px solid var(--border-soft);">
       <h3>Backup &amp; Restore</h3>
-      <p class="hint no-app-remote">Everything is stored only in this browser. Back up regularly so a cleared cache or a new machine doesn't cost you the roster and check-in history.</p>
-      <p class="hint only-app-remote">Make Backups on the main computer. <b>Restore</b> here replaces the main computer's nets with the backup.</p>
+      <p class="hint no-app-remote">Everything is stored only on this device. Back up regularly so a cleared cache or a new machine doesn't cost you the roster and check-in history. A Backup holds the net that's open now; with more than one net, back up each one.</p>
+      <p class="hint only-app-remote">Make Backups on the main computer. <b>Restore</b> here replaces the net that's open on the main computer with the backup.</p>
       <div class="row" style="align-items:center;">
-        <button class="secondary no-app-remote" id="backupBtn">Backup All Data</button>
-        <button class="secondary" id="restoreBtn">Restore All Data</button>
+        <button class="secondary no-app-remote" id="backupBtn">Backup This Net</button>
+        <button class="secondary" id="restoreBtn">Restore This Net</button>
         <input type="file" id="restoreFileInput" accept=".json,application/json" style="display:none;">
         <span class="flash" id="backupFlash"></span>
       </div>
@@ -1116,6 +1117,16 @@ let DATA = STORE.nets[STORE.activeNetId];
   });
   if(changed) saveData();
 })();
+/* A check-in remembers the station's earlier Last Check-in so it can be undone, which only
+   matters the day it's made. Dropping it from older check-ins keeps the saved data small. */
+(function dropOldUndoInfo(){
+  const today = todayStr();
+  let changed = false;
+  Object.values(STORE.nets).forEach(net => (net.qni || []).forEach(q=>{
+    if(q.prev && q.date !== today){ delete q.prev; changed = true; }
+  }));
+  if(changed) saveData();
+})();
 (function fillLocations(){
   let changed = false;
   Object.values(STORE.nets).forEach(net => (net.roster || []).forEach(r=>{
@@ -1130,12 +1141,21 @@ let DATA = STORE.nets[STORE.activeNetId];
 function saveData(){
   pendingIncoming = null;   // a change made here wins over a not-yet-shown one from elsewhere
   if(HAMNET_REMOTE){ remoteSave(); return; }
+  storeToDisk();
+  sharePublish();
+}
+/* Writes the store to this device. If that fails (storage full or blocked), a red bar
+   says so until a later save works: otherwise the changes would quietly vanish on restart. */
+function storeToDisk(){
+  let ok = true;
   try{
     localStorage.setItem(STORE_KEY, JSON.stringify(STORE));
   }catch(e){
+    ok = false;
     console.error('Storage write failed.', e);
   }
-  sharePublish();
+  const bar = document.getElementById('saveFailBanner');
+  if(bar) bar.hidden = ok;
 }
 
 /* ---------- Sharing between devices ----------
@@ -1160,9 +1180,7 @@ function tryApplyIncoming(){
   if(!store) return;
   STORE = store;
   DATA = STORE.nets[STORE.activeNetId];
-  if(!HAMNET_REMOTE){
-    try{ localStorage.setItem(STORE_KEY, JSON.stringify(STORE)); }catch(e){ console.error('Storage write failed.', e); }
-  }
+  if(!HAMNET_REMOTE) storeToDisk();
   redrawAll();
 }
 function redrawAll(){
@@ -1187,6 +1205,9 @@ function sharePublish(now){
 /* A remote page: send saves to the main computer, and check it for newer data. */
 var remoteVersion = REMOTE_OK ? HAMNET_REMOTE.version : 0;
 var remotePutTimer = null, remotePutting = false, remoteDirty = false;
+/* Set once the main computer says this device isn't paired (e.g. after New Code). Nothing
+   more is sent with the old code, so it isn't counted there as a string of wrong guesses. */
+var remoteUnpaired = false;
 function remoteSave(){
   if(!REMOTE_OK) return;
   remoteDirty = true;
@@ -1194,6 +1215,7 @@ function remoteSave(){
   remotePutTimer = setTimeout(remoteFlush, 250);
 }
 async function remoteFlush(){
+  if(remoteUnpaired) return;
   if(remotePutting){ remotePutTimer = setTimeout(remoteFlush, 250); return; }
   if(!remoteDirty) return;
   remoteDirty = false;
@@ -1214,7 +1236,7 @@ async function remoteFlush(){
   }
 }
 async function remotePoll(){
-  if(remoteDirty || remotePutting) return;
+  if(remoteUnpaired || remoteDirty || remotePutting) return;
   try{
     const r = await fetch('/api/version', {cache:'no-store'});
     if(r.status === 401){ showRemoteOverlay('pair'); return; }
@@ -1570,7 +1592,7 @@ function renderSessionBox(){
   const qtcEntry = DATA.qtc.find(q => q.date === d);
   const qtr = formatQtr(qtrMinutes(s));
   document.getElementById('sessStats').innerHTML =
-    `<span>QNI<b>${qni}</b></span><span>QTC<b>${qtcEntry ? qtcEntry.count : 0}</b></span><span>QTR<b>${qtr || '—'}</b></span>`;
+    `<span>QNI<b>${qni}</b></span><span>QTC<b>${escapeHtml(qtcEntry ? qtcEntry.count : 0)}</b></span><span>QTR<b>${escapeHtml(qtr || '—')}</b></span>`;
 }
 document.getElementById('sessStartBtn').addEventListener('click', ()=>{
   todaySession(true).start = nowHHMM();
@@ -1628,15 +1650,15 @@ function renderTrafficBoard(){
     rows.forEach(q=>{
       const qi = DATA.qni.indexOf(q);
       const groupOpts = '<option value="">—</option>' + gs.map(g =>
-        `<option value="${g.id}" ${q.group===g.id?'selected':''}>${escapeHtml(g.label)}</option>`).join('');
+        `<option value="${escapeHtml(g.id)}" ${q.group===g.id?'selected':''}>${escapeHtml(g.label)}</option>`).join('');
       html += `<tr data-qi="${qi}"><td class="call">${escapeHtml(q.callsign)}</td><td><select class="b-group">${groupOpts}</select></td>`;
       gs.forEach(g=>{
         const t = (q.traffic && q.traffic[g.id]) || {listed:0, sent:false};
-        html += `<td class="dest-col"><input type="text" inputmode="numeric" class="b-listed" data-gid="${g.id}" value="${t.listed || ''}" autocomplete="off">` +
-          `<label class="b-sent-wrap"><input type="checkbox" class="b-sent" data-gid="${g.id}" style="width:auto;" ${t.sent?'checked':''} ${t.listed?'':'disabled'}>Sent</label></td>`;
+        html += `<td class="dest-col"><input type="text" inputmode="numeric" class="b-listed" data-gid="${escapeHtml(g.id)}" value="${escapeHtml(t.listed || '')}" autocomplete="off">` +
+          `<label class="b-sent-wrap"><input type="checkbox" class="b-sent" data-gid="${escapeHtml(g.id)}" style="width:auto;" ${t.sent?'checked':''} ${t.listed?'':'disabled'}>Sent</label></td>`;
       });
       const total = qniListedTotal(q);
-      html += `<td class="dest-col">${total || 'QRU'}</td></tr>`;
+      html += `<td class="dest-col">${escapeHtml(total || 'QRU')}</td></tr>`;
     });
   });
   html += `<tr class="board-total"><td colspan="2">Totals</td>`;
@@ -1646,13 +1668,13 @@ function renderTrafficBoard(){
       const t = q.traffic && q.traffic[g.id];
       if(t && t.listed){ listed += t.listed; if(t.sent) sent += t.listed; }
     });
-    html += `<td class="dest-col">${listed ? `${listed} <span style="color:var(--text-dim);font-weight:400;">(${sent} sent)</span>` : ''}</td>`;
+    html += `<td class="dest-col">${listed ? `${escapeHtml(listed)} <span style="color:var(--text-dim);font-weight:400;">(${escapeHtml(sent)} sent)</span>` : ''}</td>`;
   });
-  html += `<td class="dest-col">${todays.reduce((sum,q)=>sum+qniListedTotal(q),0)}</td></tr></tbody>`;
+  html += `<td class="dest-col">${escapeHtml(todays.reduce((sum,q)=>sum+qniListedTotal(q),0))}</td></tr></tbody>`;
   table.innerHTML = html;
 
   if(focusKey){
-    const sel = `tr[data-qi="${focusKey.qi}"] .${focusKey.cls}` + (focusKey.gid ? `[data-gid="${focusKey.gid}"]` : '');
+    const sel = `tr[data-qi="${CSS.escape(focusKey.qi)}"] .${CSS.escape(focusKey.cls)}` + (focusKey.gid ? `[data-gid="${CSS.escape(focusKey.gid)}"]` : '');
     const el = table.querySelector(sel);
     if(el) el.focus();
   }
@@ -1792,7 +1814,7 @@ document.getElementById('tabNav').addEventListener('click', e=>{
 function renderHeader(){
   const sel = document.getElementById('netNameDisplay');
   sel.innerHTML = Object.entries(STORE.nets)
-    .map(([id,net]) => `<option value="${id}">${escapeHtml(net.settings.netName || '(unnamed net)')}</option>`)
+    .map(([id,net]) => `<option value="${escapeHtml(id)}">${escapeHtml(net.settings.netName || '(unnamed net)')}</option>`)
     .join('') + `<option value="__new__">+ New Net…</option>`;
   sel.value = STORE.activeNetId;
   document.getElementById('ncsDisplay').textContent = 'NCS: ' + (DATA.settings.ncs || '—');
@@ -1854,6 +1876,11 @@ setInterval(tick, 1000); tick();
 const ID_SECONDS = 600;
 let idRemaining = ID_SECONDS;
 let idInterval = null;
+let idEndsAt = 0;   // clock time the running countdown reaches zero
+function startIdCountdown(){
+  idEndsAt = Date.now() + idRemaining * 1000;
+  idInterval = setInterval(idTick, 1000);
+}
 
 function formatMMSS(sec){
   const m = Math.floor(sec/60), s = sec%60;
@@ -1875,7 +1902,7 @@ function beep(){
   }catch(e){ /* audio not available */ }
 }
 function idTick(){
-  idRemaining--;
+  idRemaining = Math.max(0, Math.ceil((idEndsAt - Date.now()) / 1000));
   renderIdTimer();
   if(idRemaining <= 0){
     clearInterval(idInterval); idInterval=null;
@@ -1887,7 +1914,7 @@ function idTick(){
 document.getElementById('idTimerStart').addEventListener('click', ()=>{
   if(idInterval) return;
   document.getElementById('timerBox').classList.add('running');
-  idInterval = setInterval(idTick, 1000);
+  startIdCountdown();
 });
 document.getElementById('idTimerStop').addEventListener('click', ()=>{
   if(idInterval){ clearInterval(idInterval); idInterval=null; }
@@ -1900,7 +1927,7 @@ document.getElementById('idModalOk').addEventListener('click', ()=>{
   idRemaining = ID_SECONDS;
   renderIdTimer();
   document.getElementById('timerBox').classList.add('running');
-  idInterval = setInterval(idTick, 1000);
+  startIdCountdown();
 });
 renderIdTimer();
 
@@ -2290,10 +2317,10 @@ function renderTrafficFormFields(){
   const sel = document.getElementById('earlyGroup');
   const prev = sel.value;
   sel.innerHTML = '<option value="">—</option>' +
-    gs.map(g => `<option value="${g.id}">${escapeHtml(g.label)}</option>`).join('');
+    gs.map(g => `<option value="${escapeHtml(g.id)}">${escapeHtml(g.label)}</option>`).join('');
   if(groupById(prev)) sel.value = prev;
   document.getElementById('earlyTrafficInputs').innerHTML = gs.map(g =>
-    `<div class="dest-input"><label>${escapeHtml(g.label)}</label><input type="text" inputmode="numeric" data-gid="${g.id}" autocomplete="off"></div>`
+    `<div class="dest-input"><label>${escapeHtml(g.label)}</label><input type="text" inputmode="numeric" data-gid="${escapeHtml(g.id)}" autocomplete="off"></div>`
   ).join('');
 }
 function readTrafficInputs(){
@@ -2516,7 +2543,8 @@ document.getElementById('reportToday').addEventListener('click', ()=>{
   hideStaleReport();
   hideNetReport();
   const d = todayStr();
-  const checkins = DATA.roster.filter(r=>r.lastCheckin===d).length;
+  // Every check-in logged today, including stations checked in without being added to the Roster
+  const checkins = DATA.qni.filter(q => q.date === d).length;
   const qtc = DATA.qtc.find(q=>q.date===d);
   showReport(checkins, qtc ? qtc.count : 0);
   const lineEl = document.getElementById('netReportLine');
@@ -2632,15 +2660,16 @@ function renderNetReport(){
   }
   const calls = list => `<td class="calls">${list.map(escapeHtml).join('<br>')}</td>`;
   let html = '<thead><tr>' + rep.header.map(h => `<th>${escapeHtml(h)}</th>`).join('') + '</tr></thead><tbody>';
+  const cell = v => `<td>${escapeHtml(v === undefined || v === null ? '' : v)}</td>`;
   rep.rows.forEach(r=>{
-    html += `<tr><td>${r.date}</td><td>${r.day}</td><td>${escapeHtml(r.ncs)}</td><td>${r.checkins}</td><td>${r.traffic}</td><td>${formatQtr(r.qtr)}</td>` +
+    html += '<tr>' + [r.date, r.day, r.ncs, r.checkins, r.traffic, formatQtr(r.qtr)].map(cell).join('') +
       r.byGroup.map(calls).join('') + (rep.showOther ? calls(r.other) : '') +
-      r.to.map(n => `<td>${n}</td>`).join('') + r.from.map(n => `<td>${n}</td>`).join('') + '</tr>';
+      r.to.map(cell).join('') + r.from.map(cell).join('') + '</tr>';
   });
   const t = rep.totals;
   const blankGroupCells = '<td></td>'.repeat(rep.groupCols);
-  html += `<tr class="board-total"><td colspan="3">${t.sessions} net${t.sessions === 1 ? '' : 's'}</td><td>${t.checkins}</td><td>${t.traffic}</td><td>${formatQtr(t.qtr)}</td>` +
-    blankGroupCells + t.to.map(n => `<td>${n}</td>`).join('') + t.from.map(n => `<td>${n}</td>`).join('') + '</tr></tbody>';
+  html += `<tr class="board-total"><td colspan="3">${t.sessions} net${t.sessions === 1 ? '' : 's'}</td>` + [t.checkins, t.traffic, formatQtr(t.qtr)].map(cell).join('') +
+    blankGroupCells + t.to.map(cell).join('') + t.from.map(cell).join('') + '</tr></tbody>';
   table.innerHTML = html;
 }
 document.getElementById('reportNet').addEventListener('click', ()=>{
@@ -3222,7 +3251,7 @@ document.getElementById('restoreFileInput').addEventListener('change', (e)=>{
     }
     const confirmed = confirm(
       `Restore this backup${parsed.exportedAt ? ' (exported '+parsed.exportedAt+')' : ''}? ` +
-      `This will REPLACE the current Roster, QNI, QTC, and Settings in this browser. This cannot be undone.`
+      `This will REPLACE the Roster, check-in history, and Settings of "${DATA.settings.netName || 'this net'}". This cannot be undone.`
     );
     if(!confirmed){ e.target.value = ''; return; }
     DATA.settings = Object.assign(defaultNetData().settings, parsed.settings || {});
@@ -3604,8 +3633,13 @@ function photoSrc(r){
 }
 function photoImgHtml(r, cls){
   const src = photoSrc(r);
-  return `<img class="${cls}" data-photo-call="${escapeHtml(r.callsign||'')}" alt="" ${src ? `src="${escapeHtml(src)}"` : 'hidden'} onerror="this.hidden=true">`;
+  return `<img class="${cls}" data-photo-call="${escapeHtml(r.callsign||'')}" alt="" ${src ? `src="${escapeHtml(src)}"` : 'hidden'}>`;
 }
+/* A photo that can't be loaded (file missing on this computer) is hidden rather than shown broken */
+document.addEventListener('error', e=>{
+  const img = e.target;
+  if(img && img.tagName === 'IMG' && img.hasAttribute('data-photo-call')) img.hidden = true;
+}, true);
 function updatePhotoEls(r){
   const src = photoSrc(r);
   document.querySelectorAll('img[data-photo-call]').forEach(img=>{
@@ -3916,7 +3950,7 @@ function renderSettings(){
   renderShareSettings();
   const sel = document.getElementById('setActiveNet');
   sel.innerHTML = Object.entries(STORE.nets)
-    .map(([id,net]) => `<option value="${id}">${escapeHtml(net.settings.netName || '(unnamed net)')}</option>`)
+    .map(([id,net]) => `<option value="${escapeHtml(id)}">${escapeHtml(net.settings.netName || '(unnamed net)')}</option>`)
     .join('');
   sel.value = STORE.activeNetId;
   document.getElementById('setNetName').value = DATA.settings.netName || '';
@@ -4010,9 +4044,9 @@ document.getElementById('deleteNetBtn').addEventListener('click', ()=>deleteNet(
     DATA.settings.preamble = document.getElementById('setPreamble').value;
     saveData();
     renderHeader();
-    const opt = document.querySelector(`#setActiveNet option[value="${STORE.activeNetId}"]`);
+    const opt = document.querySelector(`#setActiveNet option[value="${CSS.escape(STORE.activeNetId)}"]`);
     if(opt) opt.textContent = DATA.settings.netName || '(unnamed net)';
-    const headerOpt = document.querySelector(`#netNameDisplay option[value="${STORE.activeNetId}"]`);
+    const headerOpt = document.querySelector(`#netNameDisplay option[value="${CSS.escape(STORE.activeNetId)}"]`);
     if(headerOpt) headerOpt.textContent = DATA.settings.netName || '(unnamed net)';
   });
 });
@@ -4090,6 +4124,25 @@ function rosterEntryHtml(r, idx){
   `;
 }
 
+/* Shows a roster card's values as saved (callsign and dates tidied up) without rebuilding it */
+function refreshRosterEntry(entry, r){
+  const set = (cls, v) => { const el = entry.querySelector(cls); if(el !== document.activeElement) el.value = v; };
+  set('.r-callsign', r.callsign || '');
+  set('.r-birthday', toEditableDateString(r.birthday || ''));
+  set('.r-anniversary', toEditableDateString(r.anniversary || ''));
+  set('.r-notes', stationNote(r));
+  entry.querySelector('.r-location').placeholder = r.city || '';
+  entry.classList.toggle('today-row', r.lastCheckin === todayStr());
+  entry.classList.toggle('inactive-row', !!r.inactive);
+  const link = entry.querySelector('.roster-qrz-link');
+  if(link) link.href = qrzPageUrl(r);
+  const img = entry.querySelector('img[data-photo-call]');
+  if(img && img.dataset.photoCall !== (r.callsign || '')){
+    img.dataset.photoCall = r.callsign || '';
+    img.removeAttribute('src');
+    img.hidden = true;
+  }
+}
 function renderRosterCounts(){
   const active = DATA.roster.filter(r => !r.inactive).length, total = DATA.roster.length;
   document.getElementById('rosterCounts').textContent = `| Active: ${active} | Inactive: ${total - active} | Total: ${total} |`;
@@ -4105,9 +4158,17 @@ function renderRosterTable(){
     entry.querySelectorAll('input').forEach(inp=>{
       inp.addEventListener('change', ()=>{
         const oldCall = r.callsign;
-        r.callsign = normCall(entry.querySelector('.r-callsign').value);
+        const callBox = entry.querySelector('.r-callsign');
+        const newCall = normCall(callBox.value);
+        // Two entries with one callsign would make check-ins land on the wrong one
+        if(newCall && newCall !== oldCall && DATA.roster.some(x => x !== r && normCall(x.callsign) === newCall)){
+          callBox.value = oldCall;
+          qrzRosterFlash(`${newCall} is already on the Roster.`, true);
+          return;
+        }
+        r.callsign = newCall;
         const callChanged = r.callsign && r.callsign !== oldCall;
-        if(callChanged){ delete r.photo; delete r.qrzLookedUp; }
+        if(callChanged){ delete r.photo; delete r.qrzLookedUp; delete r.qrzVer; }
         r.name = entry.querySelector('.r-name').value;
         r.lastName = entry.querySelector('.r-lastname').value;
         r.spouse = entry.querySelector('.r-spouse').value;
@@ -4127,7 +4188,10 @@ function renderRosterTable(){
         r.street = entry.querySelector('.r-street').value.trim();
         r.zip = entry.querySelector('.r-zip').value.trim();
         saveData();
-        renderRosterTable();
+        // Update this card in place. Redrawing the whole list here would take the cursor
+        // out of the box Tab is moving to; the list is put back in order when the tab is next shown.
+        refreshRosterEntry(entry, r);
+        renderRosterCounts();
         if(callChanged) autoQrzLookup(r.callsign);
       });
     });
@@ -4150,12 +4214,17 @@ function renderRosterTable(){
   });
 }
 document.getElementById('addRosterRow').addEventListener('click', ()=>{
-  insertRosterEntry({
-    callsign:'NEW1CALL', name:'', spouse:'', city:'', state:'',
-    url:'', birthday:'', anniversary:'', lastCheckin:''
-  });
-  DATA.mainCursor = null;
+  // Reuse a blank NEW1CALL card that hasn't been filled in yet instead of adding a second one
+  if(!findRosterByCall('NEW1CALL')){
+    insertRosterEntry({
+      callsign:'NEW1CALL', name:'', spouse:'', city:'', state:'',
+      url:'', birthday:'', anniversary:'', lastCheckin:''
+    });
+    DATA.mainCursor = null;
+  }
   renderRosterTable();
+  const box = [...document.querySelectorAll('#rosterList .r-callsign')].find(el => el.value === 'NEW1CALL');
+  if(box){ box.scrollIntoView({block:'center'}); box.focus(); box.select(); }
 });
 
 /* ---------- Remote page: pairing, return to the installed app ---------- */
@@ -4180,6 +4249,7 @@ function showRemoteOverlay(kind){
   document.querySelectorAll('.remote-host-name').forEach(el => el.textContent = location.host);
   document.getElementById('remoteBackBtn').hidden = kind === 'connect' || !remoteReturnUrl();
   ov.classList.add('show');
+  if(kind === 'pair') remoteUnpaired = true;
   if(kind === 'pair') setTimeout(()=> document.getElementById('remoteCode').focus(), 50);
 }
 async function remotePair(){

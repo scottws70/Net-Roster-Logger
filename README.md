@@ -136,7 +136,7 @@ Drag the panel's left edge to resize it; the text scales up or down with the wid
 - **Net Manager's Summary** — combines the Net Report exports from every NCS into one report for the month. Each NCS uses **Net Report → Export CSV** and sends the file to the net manager, who puts them all in one folder and presses **Choose Folder…** (in a web browser, select all the files instead). The report is titled "[Net Name] Net Report for [Month] [Year]", with one line per NCS: **Call**, **Report Date** (the date of that NCS's file), **Sessions**, **QNI** (check-ins), **QTC** (traffic), and **AVG** (average check-ins per session). The bottom line totals Sessions, QNI, and QTC and averages the AVGs. Other CSV files in the folder are skipped, a session found in two files is counted once, and if the files cover more than one month, the month most sessions are in is used. **Export CSV** saves the summary.
 - **This Month** — total check-ins and QTC for the current calendar month, plus **Net Sessions**: the number of distinct days this month with at least one check-in — a stand-in for how many times the net actually ran. Check-ins counts every check-in, so a station that checked in on 4 nets this month counts 4 times.
 - **Stale Check-ins (>30 days)** — lists every station whose Last Check-in is older than 30 days (or who has never checked in), sorted most-overdue first. Each row has a **✕** to remove that one station from the Roster, or use **Remove All Listed** to clear the whole batch at once. **Mark All Listed Inactive** is the gentler option: it hides them all from the Main roll call without deleting them, and each one comes back automatically the next time it checks in (stations already Inactive are marked "(inactive)" in the list). All three ask for confirmation first.
-- **Backup All Data** / **Restore All Data** — see [Backup & Restore and Data Safety](#backup-restore-and-data-safety).
+- **Backup This Net** / **Restore This Net** — see [Backup & Restore and Data Safety](#backup-restore-and-data-safety).
 
 ## Settings Tab
 
@@ -231,7 +231,7 @@ Enter the pairing code once; that device then goes straight in from then on.
 - QRZ lookups, photos, and weather on the other device use the main computer's QRZ login and weather key, so they don't need to be set up there.
 - If the main computer can't be reached, a red bar says so; changes made meanwhile are sent when it's back.
 - **Back to This Device's Nets** (in the desktop app) returns to that computer's own data, which is kept separately and untouched. **Disconnect** also forgets the pairing.
-- **New Code** makes a new pairing code; every device will need to enter it again. Use it if someone you don't want on your nets has the code.
+- **New Code** makes a new pairing code; every device will need to enter it again. Use it if someone you don't want on your nets has the code. Five wrong codes in a minute from one device lock that device out for 5 minutes; other devices aren't affected.
 - If two people change things on two devices at the same moment, the later save wins.
 
 ## Roster Tab
@@ -321,7 +321,9 @@ Below the check-in form, the **Traffic Board** lists today's check-ins grouped b
 
 Everything — Roster, check-in history, settings — is stored locally. There's no cloud connection or separate server copy. Your data is YOURS.&#32;
 
-**Backup All Data**, on the [Reports](#reports) tab, downloads a dated JSON snapshot named `[Net Name]-Backup-[date].json`; **Restore All Data** loads one back in, replacing everything currently in that net.
+**Backup This Net**, on the [Reports](#reports) tab, downloads a dated JSON snapshot of the net that's open, named `[Net Name]-Backup-[date].json`; **Restore This Net** loads one back in, replacing everything currently in that net. If you keep more than one net, back up each one.
+
+If the app ever can't save your changes on the device (its storage is full or blocked), a red bar across the top says so. Make a Backup right away if you see it.
 
 Back up <em><strong>frequently. At least once a week.</em></strong>
 
