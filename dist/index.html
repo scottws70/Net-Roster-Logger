@@ -553,9 +553,6 @@ window.hamnetSplashDone = (function(){
       <h3 style="font-size:14px;color:var(--accent);margin:0 0 14px;">Out of Sequence, Early, or Late</h3>
       <div class="row">
         <div class="field mono-field"><label>Callsign</label><input type="text" id="oosCallsign" class="callsign-input" autocomplete="off"></div>
-        <div class="field"><label>Name</label><input type="text" id="oosName" autocomplete="off"></div>
-        <div class="field" id="oosCityField"><label>City</label><input type="text" id="oosCity" autocomplete="off"></div>
-        <div class="field"><label>State</label><input type="text" id="oosState" autocomplete="off"></div>
       </div>
       <span class="flash" id="oosFlash"></span>
     </div>
@@ -605,9 +602,6 @@ window.hamnetSplashDone = (function(){
     <p class="hint">Enter a callsign and press Enter to mark it checked in for today. Callsign accepts the full callsign or just the suffix (e.g. "AW" for W1AW) if it's unique on the roster.</p>
     <div class="row" style="margin-top:16px;">
       <div class="field mono-field"><label>Callsign</label><input type="text" id="earlyCallsign" class="callsign-input" autocomplete="off"></div>
-      <div class="field"><label>Name</label><input type="text" id="earlyName" autocomplete="off"></div>
-      <div class="field" id="earlyCityField"><label>City</label><input type="text" id="earlyCity" autocomplete="off"></div>
-      <div class="field"><label>State</label><input type="text" id="earlyState" autocomplete="off"></div>
       <div class="field" id="earlyGroupField" style="display:none;max-width:130px;"><label>Group</label><select id="earlyGroup"></select></div>
       <div class="field" id="earlyQtcField" style="display:none;max-width:90px;"><label>QTC</label><input type="text" id="earlyQtc" autocomplete="off"></div>
       <div class="field" id="earlyDestField" style="display:none;"><label>Destination</label><input type="text" id="earlyDestination" autocomplete="off"></div>
@@ -630,9 +624,6 @@ window.hamnetSplashDone = (function(){
     <p class="hint">Callsign accepts the full callsign or just the suffix (e.g. "AW" for W1AW) if it's unique on the roster.</p>
     <div class="row" style="margin-top:16px;">
       <div class="field mono-field"><label>Callsign</label><input type="text" id="eolCallsign" class="callsign-input" autocomplete="off"></div>
-      <div class="field"><label>Name</label><input type="text" id="eolName" autocomplete="off"></div>
-      <div class="field"><label>City</label><input type="text" id="eolCity" autocomplete="off"></div>
-      <div class="field"><label>State</label><input type="text" id="eolState" autocomplete="off"></div>
     </div>
     <span class="flash" id="eolFlash"></span>
   </section>
@@ -646,7 +637,6 @@ window.hamnetSplashDone = (function(){
       <button class="secondary" id="reportNet">Net Report</button>
       <button class="secondary" id="reportMgr">Net Manager's Summary</button>
       <button class="secondary" id="reportStale30">Stale Check-ins (&gt;30 days)</button>
-      <button class="secondary" id="reportStale90">Stale Check-ins (&gt;90 days)</button>
     </div>
     <div class="report-nums" id="reportNums" style="display:none;">
       <div class="num-box"><div class="n" id="repCheckins">0</div><div class="l">Check-ins</div></div>
@@ -1300,21 +1290,6 @@ function findRosterByCall(call){
   return DATA.roster.find(r => normCall(r.callsign) === target);
 }
 
-/* Mirrors resolveCallsignInput, but matches by Name, Last Name, or both ("Mark Smith"),
-   for use when the Callsign field is left blank. Returns the same shape of result. */
-function resolveNameInput(input){
-  const target = (input||'').trim().toLowerCase();
-  if(!target) return {call:null, status:'empty'};
-  const candidates = DATA.roster.filter(r => {
-    const first = (r.name||'').trim().toLowerCase();
-    const last = (r.lastName||'').trim().toLowerCase();
-    return target === first || target === last || (last && target === (first + ' ' + last).trim());
-  });
-  if(candidates.length === 1) return {call:candidates[0].callsign, status:'name'};
-  if(candidates.length > 1) return {call:null, status:'ambiguous', candidates};
-  return {call:null, status:'notfound'};
-}
-
 /* Accepts either a full callsign or just its suffix (e.g. "EI" for AE5EI).
    Returns {call, status} where status is:
      'exact'     - input matched a full callsign
@@ -1517,6 +1492,7 @@ function renderCheckinsList(){
     }
     let nameText = (r && r.name) ? r.name : '';
     if(isTraffic && r && r.state) nameText += (nameText ? ' - ' : '') + r.state;
+    if(!isTraffic && r && stationLocation(r)) nameText += (nameText ? ' - ' : '') + stationLocation(r);   // City when Location is blank
     const g = matrix && groupById(q.group);
     if(g) nameText += (nameText ? ' · ' : '') + g.label;
     return `<div class="checkin-item"><button class="del-btn ci-del" data-qi="${DATA.qni.indexOf(q)}" title="Remove this check-in">✕</button><span class="call">${escapeHtml(q.callsign)}</span><span class="nm">${escapeHtml(nameText)}</span>${qtcLine}</div>`;
@@ -1735,10 +1711,8 @@ function applyNetTypeUI(){
   document.getElementById('tab-early').querySelector('.tab-title').textContent = isTraffic ? 'Main' : 'Early Check-ins';
   const matrix = usesTrafficMatrix();
   document.getElementById('earlyPrompt').style.display = isTraffic ? 'none' : '';
-  const cityField = document.getElementById('earlyCityField');
   const qtcField = document.getElementById('earlyQtcField');
   const destField = document.getElementById('earlyDestField');
-  if(cityField) cityField.style.display = isTraffic ? 'none' : '';
   if(qtcField) qtcField.style.display = (isTraffic && !matrix) ? '' : 'none';
   if(destField) destField.style.display = (isTraffic && !matrix) ? '' : 'none';
   document.getElementById('earlyGroupField').style.display = matrix ? '' : 'none';
@@ -2300,10 +2274,7 @@ document.getElementById('earlyCallsign').addEventListener('blur', (e)=>{
 function makeCheckinForm(prefix, flashId){
   function fields(){
     return {
-      callsign: document.getElementById(prefix+'Callsign'),
-      name: document.getElementById(prefix+'Name'),
-      city: document.getElementById(prefix+'City'),
-      state: document.getElementById(prefix+'State')
+      callsign: document.getElementById(prefix+'Callsign')
     };
   }
   function isTrafficMain(){
@@ -2311,7 +2282,7 @@ function makeCheckinForm(prefix, flashId){
   }
   function clearFields(){
     const f = fields();
-    f.callsign.value=''; f.name.value=''; f.city.value=''; f.state.value='';
+    f.callsign.value='';
     const qtcEl = document.getElementById('earlyQtc');
     const destEl = document.getElementById('earlyDestination');
     if(qtcEl) qtcEl.value = '';
@@ -2325,24 +2296,9 @@ function makeCheckinForm(prefix, flashId){
   function submit(){
     const f = fields();
     const flash = document.getElementById(flashId);
-    let callRaw = f.callsign.value.trim();
-    let resolved;
-    if(!callRaw && f.name && f.name.value.trim()){
-      resolved = resolveNameInput(f.name.value.trim());
-      if(resolved.status === 'ambiguous'){
-        flash.textContent = `"${f.name.value.trim()}" matches ${resolved.candidates.map(c=>c.callsign).join(', ')} — type the callsign instead.`;
-        flash.classList.add('bad');
-        return;
-      }
-      if(resolved.status === 'notfound'){
-        flash.textContent = `No roster match for "${f.name.value.trim()}" — enter a callsign.`;
-        flash.classList.add('bad');
-        return;
-      }
-      callRaw = resolved.call;
-    }
+    const callRaw = f.callsign.value.trim();
     if(!callRaw) return;
-    resolved = resolveCallsignInput(callRaw);
+    const resolved = resolveCallsignInput(callRaw);
     if(resolved.status === 'ambiguous'){
       flash.textContent = `"${callRaw.toUpperCase()}" matches ${resolved.candidates.map(c=>c.callsign).join(', ')} — type the full callsign.`;
       flash.classList.add('bad');
@@ -2371,9 +2327,7 @@ function makeCheckinForm(prefix, flashId){
     }else{
       pendingNewStation = {
         callsign: call.toUpperCase(),
-        name: f.name.value.trim(),
-        city: f.city.value.trim(),
-        state: f.state.value.trim(),
+        name: '', city: '', state: '',   // filled in from QRZ
         qtc: qtcAmount,
         destination: destination,
         extra: extra
@@ -2783,7 +2737,7 @@ document.getElementById('reportMgr').addEventListener('click', ()=>{
   renderMgrSummary();
 });
 // The other report buttons put this one away
-['reportToday','reportMonth','reportNet','reportStale30','reportStale90'].forEach(id =>
+['reportToday','reportMonth','reportNet','reportStale30'].forEach(id =>
   document.getElementById(id).addEventListener('click', hideMgrReport));
 document.getElementById('mgrChoose').addEventListener('click', async ()=>{
   if(hamnetIsTauri() && !hamnetIsAndroid()){
@@ -2900,7 +2854,6 @@ function showStaleReport(thresholdDays){
   document.getElementById('staleReport').style.display='block';
 }
 document.getElementById('reportStale30').addEventListener('click', ()=>showStaleReport(30));
-document.getElementById('reportStale90').addEventListener('click', ()=>showStaleReport(90));
 
 /* ---------- Save locations (File System Access API, Chromium-based browsers) ---------- */
 const FS_SUPPORTED = ('showDirectoryPicker' in window);

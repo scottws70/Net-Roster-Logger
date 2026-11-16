@@ -78,13 +78,12 @@ Fill in a row, then press **Enter** or **Tab** out of it to open a new blank row
 
 ## Early Check-ins Tab
 
-For stations that check in before or outside the normal roll call. At the top is the call to read on the air: **"Any Mobiles, Portables, or Low Power stations?"** Fields: Callsign, Name, City, State.
+For stations that check in before or outside the normal roll call. At the top is the call to read on the air: **"Any Mobiles, Portables, or Low Power stations?"** Just type the **Callsign** and press **Enter**; the name and city come from the Roster, or from QRZ for a new station.
 
 - **Callsign** accepts the full callsign (`W1AW`) or just the suffix (`AW`), as long as that suffix matches exactly one station on the Roster. If it matches more than one, you'll be asked to type the full callsign instead.
-- **Name lookup:** if you don't have the callsign handy, leave Callsign blank, type the station's **Name**, **Last Name**, or both (`Mark`, `Smith`, or `Mark Smith`), and press **Enter**. If exactly one station on the Roster matches, it's checked in. If several do, you'll see their callsigns and be asked to type the callsign instead. Each name must match the whole field (capitalization doesn't matter) — `Mar` won't find "Mark".
 - A **known** callsign is checked in immediately.
-- An **unknown** callsign opens the **Not on the Roster** prompt, showing the station as **CALL : First name from City**. The Name and City you typed are used first; with a [QRZ login](#qrzcom-login) saved, the rest is looked up on QRZ while the prompt is open (it says so if QRZ doesn't know the callsign, a good hint of a typo). Choose:
-  - **Add to roster and check in** (the default; Enter) — adds the station using what you typed plus QRZ's photo, name, email, and address, as described under [QRZ Photos, Names, Addresses, and Email](#qrz-photos-names-addresses-and-email), and checks it in.
+- An **unknown** callsign opens the **Not on the Roster** prompt, showing the station as **CALL : First name from City**. With a [QRZ login](#qrzcom-login) saved, the name and city are looked up on QRZ while the prompt is open (it says so if QRZ doesn't know the callsign, a good hint of a typo). Choose:
+  - **Add to roster and check in** (the default; Enter) — adds the station with QRZ's photo, name, email, and address, as described under [QRZ Photos, Names, Addresses, and Email](#qrz-photos-names-addresses-and-email), and checks it in.
   - **Just check in for now** — checks it in today without adding it to the Roster.
   - **Re-Enter Callsign** (or Esc) — closes the prompt and keeps what you typed, with the callsign selected so you can fix a typo and press Enter again.
 
@@ -112,19 +111,19 @@ When you reach the end of the Roster, Main switches automatically to **End of th
 
 ### Out of Sequence, Early, or Late
 
-Below the station card is a small check-in box for stations that break in during roll call — a "CONTACT," a late arrival, or "check in my wife too" — so you can log them without leaving the Main tab. It works exactly like [Early Check-ins](#early-check-ins): the same Callsign / Name / City / State fields, suffix matching, name lookup, and “Not on the Roster” prompt.
+Below the station card is a small check-in box for stations that break in during roll call — a "CONTACT," a late arrival, or "check in my wife too" — so you can log them without leaving the Main tab. It works exactly like [Early Check-ins](#early-check-ins): the same Callsign field, suffix matching, and “Not on the Roster” prompt.
 
 Anyone checked in this way is skipped automatically when roll call reaches them. While your cursor is in one of these fields, Space and the arrow keys type normally instead of moving the roll call; click anywhere outside the box to go back to using the shortcuts.
 
 ## End of the List Tab
 
-Works exactly like [Early Check-ins](#early-check-ins) — same four fields, same suffix matching, same “Not on the Roster” prompt — for catching late, missed, or new stations.
+Works exactly like [Early Check-ins](#early-check-ins) — same Callsign field, same suffix matching, same “Not on the Roster” prompt — for catching late, missed, or new stations.
 
 The app switches here automatically the moment you reach the end of the Roster on the Main tab, whether by Space or →.
 
 ## Check-ins Today Panel (Appearance)
 
-A panel on the right, visible on every tab, listing Callsign and Name for every station checked in today. Its heading shows the count, such as **Check-ins Today: 12/40**: stations checked in today out of the active stations on the Roster. It updates the moment a check-in happens — from Main, Early Check-ins, or End of the List — and auto-scrolls down to show each new entry as it's added.
+A panel on the right, visible on every tab, listing Callsign and Name for every station checked in today, followed by the station's Location (or City, if Location is blank) on a Roll Call net, such as "Scott - Lincoln". Its heading shows the count, such as **Check-ins Today: 12/40**: stations checked in today out of the active stations on the Roster. It updates the moment a check-in happens — from Main, Early Check-ins, or End of the List — and auto-scrolls down to show each new entry as it's added.
 
 Checked in someone by mistake? Click the **✕** on their entry and confirm. The check-in is removed from today's log, any QTC it added is taken back off the day's count, and the station's Last Check-in (and Inactive setting, if it had one) go back to what they were. On a Roll Call net they'll come up again when roll call reaches them; if roll call has already passed them, use ← on the Main tab to go back.
 
@@ -136,7 +135,7 @@ Drag the panel's left edge to resize it; the text scales up or down with the wid
 - **Net Report** — one row per net session for a chosen month: Date, Day, NCS, Check-ins, Traffic, Time (QTR), the stations that checked in from each area/region, and the traffic To and From each Area (or each group, on a net with no Area groups, such as one divided by state), with a totals row at the bottom. Pick a **Month**, and use **Days** to show only one day of the week (e.g. Fridays). **Export CSV** saves the report, ready to open in Excel, LibreOffice, or Zoho. Area/region columns appear on a [Traffic Net](#traffic-net-mode) with Traffic Groups set up.
 - **Net Manager's Summary** — combines the Net Report exports from every NCS into one report for the month. Each NCS uses **Net Report → Export CSV** and sends the file to the net manager, who puts them all in one folder and presses **Choose Folder…** (in a web browser, select all the files instead). The report is titled "[Net Name] Net Report for [Month] [Year]", with one line per NCS: **Call**, **Report Date** (the date of that NCS's file), **Sessions**, **QNI** (check-ins), **QTC** (traffic), and **AVG** (average check-ins per session). The bottom line totals Sessions, QNI, and QTC and averages the AVGs. Other CSV files in the folder are skipped, a session found in two files is counted once, and if the files cover more than one month, the month most sessions are in is used. **Export CSV** saves the summary.
 - **This Month** — total check-ins and QTC for the current calendar month, plus **Net Sessions**: the number of distinct days this month with at least one check-in — a stand-in for how many times the net actually ran. Check-ins counts every check-in, so a station that checked in on 4 nets this month counts 4 times.
-- **Stale Check-ins (>30 / >90 days)** — lists every station whose Last Check-in is older than that many days (or who has never checked in), sorted most-overdue first. Each row has a **✕** to remove that one station from the Roster, or use **Remove All Listed** to clear the whole batch at once. **Mark All Listed Inactive** is the gentler option: it hides them all from the Main roll call without deleting them, and each one comes back automatically the next time it checks in (stations already Inactive are marked "(inactive)" in the list). All three ask for confirmation first.
+- **Stale Check-ins (>30 days)** — lists every station whose Last Check-in is older than 30 days (or who has never checked in), sorted most-overdue first. Each row has a **✕** to remove that one station from the Roster, or use **Remove All Listed** to clear the whole batch at once. **Mark All Listed Inactive** is the gentler option: it hides them all from the Main roll call without deleting them, and each one comes back automatically the next time it checks in (stations already Inactive are marked "(inactive)" in the list). All three ask for confirmation first.
 - **Backup All Data** / **Restore All Data** — see [Backup & Restore and Data Safety](#backup-restore-and-data-safety).
 
 ## Settings Tab
@@ -325,8 +324,6 @@ I recommend first setting your net up in the Settings tab, and once that's done 
 **A station I expect to see on Main isn't showing up.** Check whether it's marked Inactive in the Roster tab — inactive stations are hidden from roll call until they check in again from any tab.  Or perhaps they checked in early.
 
 **“Matches multiple callsigns” message in Early Check-ins or End of the List.** The suffix you typed matches more than one station. Type the full callsign instead.
-
-**“No roster match” when checking in by name.** Name lookup needs the whole Name, the whole Last Name, or both, exactly as entered on the Roster (capitalization aside). Enter the callsign instead, or check the spelling in the Roster tab.
 
 **A station shows up as Unassigned on the Traffic Board.** Its Roster Area/Region doesn't match any Traffic Group. Fill in its Area or Region in the Roster tab, or check the group's "Matches roster" value.
 
