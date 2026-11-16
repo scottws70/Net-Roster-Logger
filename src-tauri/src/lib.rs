@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 
+mod mail;
 mod qrz;
 mod share;
 mod weather;
@@ -109,6 +110,11 @@ pub fn run() {
             save_text_file,
             write_text_file,
             read_csv_folder,
+            mail::mail_status,
+            mail::mail_save_settings,
+            mail::mail_clear_settings,
+            mail::mail_test,
+            mail::mail_send,
             qrz::qrz_status,
             qrz::qrz_save_credentials,
             qrz::qrz_clear_credentials,

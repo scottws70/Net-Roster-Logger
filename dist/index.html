@@ -210,7 +210,7 @@
 
   label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px;}
   .field{margin-bottom:14px;}
-  input[type=text],input[type=password],input[type=date],input[type=time],input[type=month],textarea,select{
+  input[type=text],input[type=password],input[type=email],input[type=number],input[type=date],input[type=time],input[type=month],textarea,select{
     width:100%;background:var(--panel-alt);border:1px solid var(--border);color:var(--text);
     border-radius:5px;padding:8px 10px;font-size:14px;
   }
@@ -660,8 +660,10 @@ window.hamnetSplashDone = (function(){
             <option value="0">Sundays</option>
           </select>
         </div>
-        <div class="field" style="flex:0 0 auto;min-width:0;"><button class="secondary no-app-remote" id="nrExport">Export CSV</button></div>
+        <div class="field" style="flex:0 0 auto;min-width:0;"><button class="secondary no-app-remote" id="nrExport">Export CSV</button>
+          <button class="secondary" id="nrSendMgr">Send to Net Mgr</button></div>
       </div>
+      <span class="flash" id="nrFlash"></span>
       <div class="table-wrap"><table class="net-report-table" id="nrTable"></table></div>
     </div>
     <div id="mgrReport" style="display:none;margin-top:18px;">
@@ -746,6 +748,10 @@ window.hamnetSplashDone = (function(){
       <div class="row">
         <div class="field"><label>Net Name</label><input type="text" id="setNetName"></div>
         <div class="field mono-field"><label>NCS Callsign</label><input type="text" id="setNcs"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Net Manager</label><input type="text" id="setNetMgr"></div>
+        <div class="field"><label>Net Mgr Email</label><input type="email" id="setNetMgrEmail" autocomplete="off"></div>
       </div>
     </div>
 
@@ -855,6 +861,41 @@ window.hamnetSplashDone = (function(){
         </div>
       </div>
       <span class="flash" id="qrzFlash"></span>
+    </div>
+
+    <div class="settings-section">
+      <h3>Email</h3>
+      <p class="hint">Used by <b>Send to Net Mgr</b> on the Net Report to email the report to your Net Manager. Gmail and Yahoo need an <b>app password</b> (made in your Google or Yahoo account security settings), not your normal password. For Gmail, turn on 2-Step Verification with Google Authenticator or Google prompts, then open myaccount.google.com/apppasswords. Saved only on this device, in the app's settings folder; it isn't included in Backups and applies to all nets.</p>
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="max-width:170px;">
+          <label>Provider</label>
+          <select id="mailProvider">
+            <option value="gmail">Gmail</option>
+            <option value="yahoo">Yahoo</option>
+            <option value="icloud">iCloud</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="field" style="max-width:240px;"><label>Mail Server</label><input type="text" id="mailHost" autocomplete="off" placeholder="smtp.gmail.com"></div>
+        <div class="field" style="max-width:100px;"><label>Port</label><input type="number" id="mailPort" min="1" max="65535" placeholder="587"></div>
+        <div class="field" style="max-width:170px;">
+          <label>Security</label>
+          <select id="mailSecurity">
+            <option value="starttls">STARTTLS</option>
+            <option value="ssl">SSL/TLS</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="max-width:260px;"><label>Your Email (username)</label><input type="email" id="mailUser" autocomplete="off"></div>
+        <div class="field" style="max-width:220px;"><label>App Password</label><input type="password" id="mailPass" autocomplete="new-password"></div>
+        <div class="field" style="flex:0 0 auto;min-width:0;">
+          <button class="secondary" id="mailSave">Save</button>
+          <button class="secondary" id="mailTest">Test</button>
+          <button class="secondary" id="mailClear">Clear</button>
+        </div>
+      </div>
+      <span class="flash" id="mailFlash"></span>
     </div>
 
     <div class="settings-section" id="shareSection" hidden>
@@ -2611,7 +2652,7 @@ document.getElementById('reportNet').addEventListener('click', ()=>{
 });
 document.getElementById('nrMonth').addEventListener('change', renderNetReport);
 document.getElementById('nrWeekday').addEventListener('change', renderNetReport);
-document.getElementById('nrExport').addEventListener('click', async ()=>{
+function netReportCsv(){
   const {month, weekday} = netReportFilters();
   const rep = buildNetReport(month, weekday);
   const lines = rep.rows.map(r => [
@@ -2626,8 +2667,45 @@ document.getElementById('nrExport').addEventListener('click', async ()=>{
   const csv = [rep.header, ...lines].map(row => row.map(csvEscape).join(',')).join('\r\n');
   const safeName = (DATA.settings.netName || 'net').replace(/[^a-z0-9]+/gi,'-').toLowerCase().replace(/^-+|-+$/g,'');
   const daySuffix = weekday >= 0 ? '-' + WEEKDAY_FULL[weekday].toLowerCase() + 's' : '';
-  const result = await saveFileWithLocation('export', `${safeName || 'net'}-net-report-${month}${daySuffix}.csv`, new Blob([csv], {type:'text/csv'}));
+  return {csv, rep, month, weekday, fileName: `${safeName || 'net'}-net-report-${month}${daySuffix}.csv`};
+}
+document.getElementById('nrExport').addEventListener('click', async ()=>{
+  const {csv, fileName} = netReportCsv();
+  const result = await saveFileWithLocation('export', fileName, new Blob([csv], {type:'text/csv'}));
   showSaveResult('Net Report export', result);
+});
+function nrFlash(text, bad){
+  const el = document.getElementById('nrFlash');
+  el.textContent = text;
+  el.classList.toggle('bad', !!bad);
+}
+/* Emails the Net Report CSV to the Net Manager (Settings > Net Info), sent by the Rust side
+   through the mail server in Settings > Email. */
+document.getElementById('nrSendMgr').addEventListener('click', async ()=>{
+  const btn = document.getElementById('nrSendMgr');
+  if(!hamnetIsTauri() && !HAMNET_REMOTE){ nrFlash('Sending email is available in the installed app.', true); return; }
+  const to = (DATA.settings.netMgrEmail || '').trim();
+  if(!to){ nrFlash('Enter the Net Mgr Email in Settings > Net Info first.', true); return; }
+  const {csv, rep, month, fileName} = netReportCsv();
+  if(rep.rows.length === 0){ nrFlash('No net sessions this month, so there is nothing to send.', true); return; }
+  const [y, m] = month.split('-').map(Number);
+  const monthName = new Date(y, m-1, 1).toLocaleString('en-US', {month:'long'});
+  const ncs = (DATA.settings.ncs || '').toUpperCase().trim();
+  const netName = DATA.settings.netName || 'the net';
+  const subject = `${ncs ? ncs + ' ' : ''}${monthName} Net Report for ${netName}`;
+  const mgr = (DATA.settings.netMgr || '').trim();
+  const t = rep.totals;
+  const body = `${mgr ? mgr + ',' : 'Hello,'}\n\n` +
+    `Attached is the ${netName} Net Report for ${monthName} ${y}: ${t.sessions} net${t.sessions === 1 ? '' : 's'}, ` +
+    `${t.checkins} check-in${t.checkins === 1 ? '' : 's'}, ${t.traffic} traffic.\n\n73,\n${ncs}\n\nSent from the N8VCL Net Roster Logger\n`;
+  if(!confirm(`Email "${subject}" with ${fileName} attached to ${mgr ? mgr + ' <' + to + '>' : to}?`)) return;
+  btn.disabled = true;
+  nrFlash('Sending…');
+  try{
+    const msg = await backendInvoke('mail_send', {to, subject, body, fileName, fileContents: csv, contentType: 'text/csv'});
+    nrFlash(msg);
+  }catch(e){ nrFlash('Not sent: ' + e, true); }
+  finally{ btn.disabled = false; }
 });
 
 /* ---------- Net Manager's Summary: combine every NCS's Net Report CSV for a month ----------
@@ -3371,6 +3449,90 @@ document.getElementById('csvImportInput').addEventListener('change', (e)=>{
 });
 
 /* ============================= SETTINGS TAB ============================= */
+/* ---------- Email (SMTP) for Send to Net Mgr; kept by the Rust side, not in DATA ---------- */
+const MAIL_PROVIDERS = {
+  gmail:  {host:'smtp.gmail.com',      port:587, security:'starttls'},
+  yahoo:  {host:'smtp.mail.yahoo.com', port:465, security:'ssl'},
+  icloud: {host:'smtp.mail.me.com',    port:587, security:'starttls'}
+};
+function mailFlash(text, bad){
+  const el = document.getElementById('mailFlash');
+  el.textContent = text;
+  el.classList.toggle('bad', !!bad);
+}
+function mailProviderFor(host){
+  host = (host || '').trim().toLowerCase();
+  if(!host) return 'gmail';
+  return Object.keys(MAIL_PROVIDERS).find(k => MAIL_PROVIDERS[k].host === host) || 'other';
+}
+async function renderMailSettings(){
+  const ids = ['mailProvider','mailHost','mailPort','mailSecurity','mailUser','mailPass','mailSave','mailTest','mailClear'];
+  if(!hamnetIsTauri() || HAMNET_REMOTE){
+    ids.forEach(id => document.getElementById(id).disabled = true);
+    mailFlash(HAMNET_REMOTE ? 'Uses the email settings saved on ' + location.host + '. Change them there.' : 'Sending email is available in the installed app.');
+    if(HAMNET_REMOTE){
+      try{ const st = await backendInvoke('mail_status'); document.getElementById('mailHost').value = st.host || ''; document.getElementById('mailUser').value = st.username || ''; }catch(e){}
+    }
+    return;
+  }
+  try{
+    const st = await window.__TAURI__.core.invoke('mail_status');
+    const prov = mailProviderFor(st.host);
+    const preset = MAIL_PROVIDERS[prov];
+    document.getElementById('mailProvider').value = prov;
+    document.getElementById('mailHost').value = st.host || (preset ? preset.host : '');
+    document.getElementById('mailPort').value = st.port || (preset ? preset.port : 587);
+    document.getElementById('mailSecurity').value = st.host ? (st.security || 'starttls') : (preset ? preset.security : 'starttls');
+    document.getElementById('mailUser').value = st.username || '';
+    const pass = document.getElementById('mailPass');
+    pass.value = '';
+    pass.placeholder = st.hasPassword ? '(saved)' : '';
+  }catch(e){ mailFlash('Could not read the email settings: ' + e, true); }
+}
+document.getElementById('mailProvider').addEventListener('change', e=>{
+  const p = MAIL_PROVIDERS[e.target.value];
+  if(!p){ document.getElementById('mailHost').focus(); return; }
+  document.getElementById('mailHost').value = p.host;
+  document.getElementById('mailPort').value = p.port;
+  document.getElementById('mailSecurity').value = p.security;
+});
+document.getElementById('mailHost').addEventListener('input', e=>{
+  document.getElementById('mailProvider').value = e.target.value.trim() ? mailProviderFor(e.target.value) : 'other';
+});
+document.getElementById('mailSecurity').addEventListener('change', e=>{
+  const port = document.getElementById('mailPort');
+  if(port.value === '587' || port.value === '465' || !port.value) port.value = e.target.value === 'ssl' ? 465 : 587;
+});
+document.getElementById('mailSave').addEventListener('click', async ()=>{
+  const host = document.getElementById('mailHost').value.trim();
+  const username = document.getElementById('mailUser').value.trim();
+  const password = document.getElementById('mailPass').value;
+  if(!host){ mailFlash('Enter the mail server.', true); return; }
+  if(!username){ mailFlash('Enter your email address.', true); return; }
+  try{
+    const st = await window.__TAURI__.core.invoke('mail_save_settings', {
+      host, port: Number(document.getElementById('mailPort').value) || 0,
+      security: document.getElementById('mailSecurity').value,
+      username, from: username, password: password || null
+    });
+    await renderMailSettings();
+    mailFlash(st.hasPassword ? 'Email settings saved. Click Test to check them.' : 'Saved. Enter your app password too.', !st.hasPassword);
+  }catch(e){ mailFlash('Save failed: ' + e, true); }
+});
+document.getElementById('mailTest').addEventListener('click', async ()=>{
+  mailFlash('Signing in to the mail server…');
+  try{ mailFlash(await window.__TAURI__.core.invoke('mail_test')); }
+  catch(e){ mailFlash(String(e), true); }
+});
+document.getElementById('mailClear').addEventListener('click', async ()=>{
+  if(!confirm('Remove the saved email settings and password from this device?')) return;
+  try{
+    await window.__TAURI__.core.invoke('mail_clear_settings');
+    await renderMailSettings();
+    mailFlash('Email settings removed.');
+  }catch(e){ mailFlash('Clear failed: ' + e, true); }
+});
+
 /* ---------- QRZ.com login (desktop app only; kept by the Rust side, not in DATA) ---------- */
 function qrzFlash(text, bad){
   const el = document.getElementById('qrzFlash');
@@ -3749,6 +3911,7 @@ document.getElementById('wxKeyClear').addEventListener('click', async ()=>{
 function renderSettings(){
   renderFileLocations();
   renderQrzLogin();
+  renderMailSettings();
   renderWeatherSettings();
   renderShareSettings();
   const sel = document.getElementById('setActiveNet');
@@ -3758,6 +3921,8 @@ function renderSettings(){
   sel.value = STORE.activeNetId;
   document.getElementById('setNetName').value = DATA.settings.netName || '';
   document.getElementById('setNcs').value = DATA.settings.ncs || '';
+  document.getElementById('setNetMgr').value = DATA.settings.netMgr || '';
+  document.getElementById('setNetMgrEmail').value = DATA.settings.netMgrEmail || '';
   document.getElementById('setPreamble').value = DATA.settings.preamble || '';
   document.getElementById('setTheme').value = DATA.settings.theme || 'default';
   document.getElementById('setTimeFormat').value = DATA.settings.timeFormat || '12';
@@ -3836,10 +4001,12 @@ document.getElementById('setActiveNet').addEventListener('change', (e)=>{
 });
 document.getElementById('newNetBtn').addEventListener('click', createNet);
 document.getElementById('deleteNetBtn').addEventListener('click', ()=>deleteNet(STORE.activeNetId));
-['setNetName','setNcs','setPreamble'].forEach(id=>{
+['setNetName','setNcs','setNetMgr','setNetMgrEmail','setPreamble'].forEach(id=>{
   document.getElementById(id).addEventListener('input', ()=>{
     DATA.settings.netName = document.getElementById('setNetName').value;
     DATA.settings.ncs = document.getElementById('setNcs').value;
+    DATA.settings.netMgr = document.getElementById('setNetMgr').value;
+    DATA.settings.netMgrEmail = document.getElementById('setNetMgrEmail').value.trim();
     DATA.settings.preamble = document.getElementById('setPreamble').value;
     saveData();
     renderHeader();

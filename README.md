@@ -132,7 +132,7 @@ Drag the panel's left edge to resize it; the text scales up or down with the wid
 ## Reports Tab
 
 - **Today** — how many stations checked in today, and today's QTC count. On a [Traffic Net](#traffic-net-mode), it also shows a one-line net report ready to send.
-- **Net Report** — one row per net session for a chosen month: Date, Day, NCS, Check-ins, Traffic, Time (QTR), the stations that checked in from each area/region, and the traffic To and From each Area (or each group, on a net with no Area groups, such as one divided by state), with a totals row at the bottom. Pick a **Month**, and use **Days** to show only one day of the week (e.g. Fridays). **Export CSV** saves the report, ready to open in Excel, LibreOffice, or Zoho. Area/region columns appear on a [Traffic Net](#traffic-net-mode) with Traffic Groups set up.
+- **Net Report** — one row per net session for a chosen month: Date, Day, NCS, Check-ins, Traffic, Time (QTR), the stations that checked in from each area/region, and the traffic To and From each Area (or each group, on a net with no Area groups, such as one divided by state), with a totals row at the bottom. Pick a **Month**, and use **Days** to show only one day of the week (e.g. Fridays). **Export CSV** saves the report, ready to open in Excel, LibreOffice, or Zoho. **Send to Net Mgr** emails the same CSV to the Net Mgr Email from [Net Info](#net-info), with the subject "[NCS] [Month] Net Report for [Net Name]" (e.g. `N8VCL November Net Report for BTN`). It asks before sending, and needs [Email](#email) set up first. Area/region columns appear on a [Traffic Net](#traffic-net-mode) with Traffic Groups set up.
 - **Net Manager's Summary** — combines the Net Report exports from every NCS into one report for the month. Each NCS uses **Net Report → Export CSV** and sends the file to the net manager, who puts them all in one folder and presses **Choose Folder…** (in a web browser, select all the files instead). The report is titled "[Net Name] Net Report for [Month] [Year]", with one line per NCS: **Call**, **Report Date** (the date of that NCS's file), **Sessions**, **QNI** (check-ins), **QTC** (traffic), and **AVG** (average check-ins per session). The bottom line totals Sessions, QNI, and QTC and averages the AVGs. Other CSV files in the folder are skipped, a session found in two files is counted once, and if the files cover more than one month, the month most sessions are in is used. **Export CSV** saves the summary.
 - **This Month** — total check-ins and QTC for the current calendar month, plus **Net Sessions**: the number of distinct days this month with at least one check-in — a stand-in for how many times the net actually ran. Check-ins counts every check-in, so a station that checked in on 4 nets this month counts 4 times.
 - **Stale Check-ins (>30 days)** — lists every station whose Last Check-in is older than 30 days (or who has never checked in), sorted most-overdue first. Each row has a **✕** to remove that one station from the Roster, or use **Remove All Listed** to clear the whole batch at once. **Mark All Listed Inactive** is the gentler option: it hides them all from the Main roll call without deleting them, and each one comes back automatically the next time it checks in (stations already Inactive are marked "(inactive)" in the list). All three ask for confirmation first.
@@ -152,7 +152,7 @@ Switch, create, or delete nets. Each net has its own Roster, check-in history, a
 
 ### Net Info
 
-Net Name and NCS Callsign, shown in the header.
+Net Name and NCS Callsign, shown in the header, plus the **Net Manager** and **Net Mgr Email** that [Send to Net Mgr](#reports-tab) emails the Net Report to.
 
 ### Preamble Script
 
@@ -195,6 +195,20 @@ Your QRZ.com username and password, used to look stations up on QRZ for their ph
 - **Clear** removes the saved login.
 
 Like File Locations, the login belongs to the computer, not to a net: it's saved only in the app's settings folder on this computer, applies to all nets, and is never included in Backups. This section works only in the installed app.
+
+### Email
+
+The mail account that **Send to Net Mgr** sends from. Pick your **Provider** (Gmail, Yahoo, or iCloud fill in the Mail Server, Port, and Security for you; choose Other to enter your own), then enter **Your Email** and an **App Password**.
+
+Gmail, Yahoo, and iCloud don't accept your normal password from apps like this one. Make an app password in your account's security settings (for Gmail: Google Account → Security → 2-Step Verification → App passwords; 2-Step Verification has to be on) and paste it here.
+
+If Google says "The setting you are looking for is not available for your account", add **Google Authenticator** or **Google prompts** as a 2-Step Verification method (app passwords aren't offered when 2-Step uses only a security key or passkey), then go straight to https://myaccount.google.com/apppasswords. Accounts in Google's Advanced Protection program, and some club or business Google Workspace accounts, can't use app passwords at all; send from another mailbox instead (Provider: Other).
+
+- **Save** stores the settings. Leave App Password blank to keep the saved one.
+- **Test** signs in to the mail server without sending anything.
+- **Clear** removes the saved settings and password.
+
+Like the QRZ login, it's saved only in the app's settings folder on this device, applies to all nets, and is never included in Backups. Set it up on the computer that keeps your nets: devices connected through [Sharing](#sharing), such as the Android tablet, send through the computer's email settings.
 
 ### Sharing
 

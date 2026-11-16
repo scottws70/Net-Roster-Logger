@@ -24,7 +24,7 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tiny_http::{Header, Method, Request, Response, Server};
 
-use crate::{qrz, weather};
+use crate::{mail, qrz, weather};
 
 const DEFAULT_PORT: u16 = 7373;
 const PAGE: &str = include_str!("../../dist/index.html");
@@ -467,6 +467,20 @@ fn api(app: &AppHandle, inner: &Arc<Inner>, req: &mut Request, path: &str) -> Re
                         qrz::lookup_blocking(app, &call, refresh)
                             .and_then(|r| serde_json::to_value(r).map_err(|e| e.to_string()))
                     }
+                }
+                "mail_status" => serde_json::to_value(mail::mail_status(app.clone())).map_err(|e| e.to_string()),
+                "mail_send" => {
+                    let arg = |k: &str| args[k].as_str().unwrap_or("").to_string();
+                    mail::send_blocking(
+                        app,
+                        &arg("to"),
+                        &arg("subject"),
+                        &arg("body"),
+                        &arg("fileName"),
+                        &arg("fileContents"),
+                        args["contentType"].as_str(),
+                    )
+                    .map(|m| json!(m))
                 }
                 "weather_has_wu_key" => Ok(json!(weather::weather_has_wu_key(app.clone()))),
                 "weather_fetch" => {
