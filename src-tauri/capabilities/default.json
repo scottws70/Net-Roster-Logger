@@ -2,14 +2,26 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Default permissions for the main window",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
     "dialog:default",
     "fs:allow-write-text-file",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://buymeacoffee.com/scottws" }]
+      "allow": [
+        {
+          "url": "https://buymeacoffee.com/scottws"
+        },
+        {
+          "url": "https://www.qrz.com/*"
+        },
+        {
+          "url": "https://qrz.com/*"
+        }
+      ]
     }
   ]
 }

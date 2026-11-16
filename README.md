@@ -44,7 +44,7 @@ The header stays fixed at the top of the screen while everything below it scroll
 - **Local Time** and **UTC Time** each show today's date above the current time, updated every second. Local time can be shown as 12- or 24-hour (Settings → Display); UTC is always 24-hour.
 - **ID Timer** counts down from 10 minutes. **Start** begins the countdown; **Stop** stops it and resets it to 10:00. At zero, a beep sounds and a "Time to ID" pop-up appears, reminding you to identify and check for waiting traffic — click **OK** to restart the countdown. The whole ID Timer box can be hidden if you don't want it (Settings → Display).
 - **Small screens** (tablets, phones, or a small window): the header shrinks to one short row — the clocks sit side by side without their dates, the ID Timer's Start/Stop sit beside it, and the tabs become a single row you swipe sideways.
-- **Weather tiles** (installed app only), between the Net Name and NCS: Temp, Humidity, Wind, Barometer, and Precip from a weather station of your choice, refreshed every 5 minutes. Hover over a tile to see the station and when the reading was taken. The tiles dim when the reading is out of date or the last update failed. Set them up in Settings → [Weather](#weather).
+- **Weather tiles** (installed app only), between the Net Name and NCS: Temp, Humidity, Wind, Barometer, Precip, and (from NWS stations) Visibility and Clouds from a weather station of your choice, refreshed every 5 minutes. Hover over a tile to see the station and when the reading was taken. The tiles dim when the reading is out of date or the last update failed. Set them up in Settings → [Weather](#weather).
 
 ## Preamble Tab
 
@@ -52,7 +52,7 @@ Displays the script you read to open the net, exactly as typed into Settings →
 
 ## Birthdays & Anniversaries Tab
 
-Lists every station whose Birthday or Anniversary matches today's month and day, with Callsign, Name, Spouse, and which occasion it is.
+Lists every station whose Birthday or Anniversary matches today's month and day, with Callsign, Name, Spouse, and which occasion it is. When the date includes the year, the occasion shows how many years it is, such as **75th Birthday** or **50th Anniversary**.
 
 Birthday and Anniversary fields don't need a full date. In the Roster, you can enter:
 
@@ -114,7 +114,7 @@ The app switches here automatically the moment you reach the end of the Roster o
 
 ## Check-ins Today Panel (Appearance)
 
-A panel on the right, visible on every tab, listing Callsign and Name for every station checked in today. It updates the moment a check-in happens — from Main, Early Check-ins, or End of the List — and auto-scrolls down to show each new entry as it's added.
+A panel on the right, visible on every tab, listing Callsign and Name for every station checked in today. Its heading shows the count, such as **Check-ins Today: 12/40**: stations checked in today out of the active stations on the Roster. It updates the moment a check-in happens — from Main, Early Check-ins, or End of the List — and auto-scrolls down to show each new entry as it's added.
 
 Checked in someone by mistake? Click the **✕** on their entry and confirm. The check-in is removed from today's log, any QTC it added is taken back off the day's count, and the station's Last Check-in (and Inactive setting, if it had one) go back to what they were. On a Roll Call net they'll come up again when roll call reaches them; if roll call has already passed them, use ← on the Main tab to go back.
 
@@ -129,6 +129,8 @@ Drag the panel's left edge to resize it; the text scales up or down with the wid
 - **Backup All Data** / **Restore All Data** — see [Backup & Restore and Data Safety](#backup-restore-and-data-safety).
 
 ## Settings Tab
+
+The app's version number is shown at the top right, across from the Settings heading.
 
 ### Net Profile
 
@@ -161,7 +163,7 @@ Weather tiles for the top of the screen, set separately for each net.
   - **National Weather Service station** — an official observation station, usually an airport (e.g. `KLNK` Lincoln, `KOMA` Omaha, `KGRI` Grand Island). No key needed. Precip is the total for the **last 24 hours**. NWS stations report about once an hour.
   - **Off** hides the tiles.
 - **Station ID** — the station to show.
-- **Temp / Humidity / Wind / Barometer / Precip** — choose which tiles appear.
+- **Temp / Humidity / Wind / Barometer / Precip / Visibility / Clouds** — choose which tiles appear. Visibility and Clouds come only from NWS stations (home weather stations don't measure them). Clouds shows the ceiling, the lowest broken or overcast layer, such as `Broken@2500 ft`; with no ceiling it shows the thickest layer (`Scattered@12000 ft`), or `Clear`.
 - **Test** fetches the weather right away and reports what it got (or why it couldn't).
 
 Wind shows direction, speed, and gust, e.g. `NW 7 G14 mph`, or `Calm`. Barometer is in inches of mercury.
@@ -212,7 +214,7 @@ Enter the pairing code once; that device then goes straight in from then on.
 
 The last tab, right after Settings. Each net has its own Roster; it's shown on both Roll Call and Traffic nets.
 
-Each station is shown as a card: Callsign, Name, Last Name, Spouse, City, Location, State on the first line; Birthday, Anniversary, Last Check-in, QRZ URL, and an Inactive checkbox on the second. **+ Add Station** adds a blank one. Callsign fields force uppercase as you type, and a slashed zero (`Ø`, as many logs write it) is turned into a real `0` — in the Roster, in every check-in box, and in imported CSVs — so callsigns sort by suffix and look up correctly on QRZ.
+Each station is shown as a card: Callsign, Name, Last Name, Spouse, City, Location, State on the first line; Birthday, Anniversary, Last Check-in, a **QRZ Page** link that opens the station's page on QRZ.com, and an Inactive checkbox on the second; and the station's **Notes** (the same note shown on the Main card) on the last. The counts at the top read `| Active: 38 | Inactive: 4 | Total: 42 |`. **+ Add Station** adds a blank one. Callsign fields force uppercase as you type, and a slashed zero (`Ø`, as many logs write it) is turned into a real `0` — in the Roster, in every check-in box, and in imported CSVs — so callsigns sort by suffix and look up correctly on QRZ.
 
 **Location** is how the net refers to where a station is — "East Campus, Lincoln", "N of McCook", "NE City" — and it's what the Main card shows. It started out as each station's City (or, for a station whose city a QRZ lookup had replaced, the city it was listed under before), and new stations start with the City you type. Edit it freely: QRZ lookups never change it. If it's left blank, the City is shown instead.
 

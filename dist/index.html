@@ -269,6 +269,7 @@
   /* Touch gestures on the roll-call card (shown only on touch screens) */
   .keyhint .gest{display:none;color:var(--text-dim);}
   html.touch .keyhint .gest{display:inline;}
+  #tab-preamble{touch-action:pan-x pan-y;}
   html.touch .station-card{touch-action:pan-y;user-select:none;-webkit-user-select:none;}
   html.touch .station-card input{user-select:text;-webkit-user-select:text;}
   #mainContent{position:relative;}
@@ -426,6 +427,7 @@
   }
 a.external-link{color:var(--accent);font-weight:600;}
 a.external-link:hover{text-decoration:underline;}
+.roster-qrz-link{display:inline-block;padding:9px 0;}
 </style>
 </head>
 <body>
@@ -677,7 +679,7 @@ window.hamnetSplashDone = (function(){
 
   <!-- SETTINGS TAB -->
   <section class="tabpanel panel" id="tab-settings" style="display:none;">
-    <h2 class="tab-title">Settings</h2>
+    <h2 class="tab-title" style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;">Settings<span id="appVersion" style="font-size:13px;font-weight:400;color:var(--text-dim);font-family:var(--mono);"></span></h2>
 
     <div class="settings-section">
       <h3>Net Profile</h3>
@@ -780,6 +782,8 @@ window.hamnetSplashDone = (function(){
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" class="wx-show" data-tile="wind" style="width:auto;"> Wind</label>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" class="wx-show" data-tile="pressure" style="width:auto;"> Barometer</label>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" class="wx-show" data-tile="precip" style="width:auto;"> Precip</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;" title="NWS stations only"><input type="checkbox" class="wx-show" data-tile="visibility" style="width:auto;"> Visibility</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;" title="NWS stations only"><input type="checkbox" class="wx-show" data-tile="clouds" style="width:auto;"> Clouds</label>
       </div>
       <div class="row" id="wxKeyRow" style="align-items:flex-end;margin-top:12px;">
         <div class="field" style="max-width:320px;"><label>Weather Underground API Key</label><input type="password" id="wxKey" autocomplete="off"></div>
@@ -887,8 +891,9 @@ window.hamnetSplashDone = (function(){
       <button class="secondary no-app-remote" id="exportRosterBtn">Export Roster CSV</button>
       <span class="flash" id="csvImportFlash"></span>
     </div>
-    <div class="row qrz-only" style="align-items:center;display:none;">
-      <button class="secondary" id="qrzFetchMissing">Fetch Missing from QRZ</button>
+    <div class="row" style="align-items:center;">
+      <button class="secondary qrz-only" id="qrzFetchMissing" style="display:none;">Fetch Missing from QRZ</button>
+      <span id="rosterCounts" style="font-family:var(--mono);font-size:13px;color:var(--text-dim);"></span>
       <span class="flash" id="qrzRosterFlash"></span>
     </div>
     <div class="roster-list" id="rosterList"></div>
@@ -899,7 +904,7 @@ window.hamnetSplashDone = (function(){
 
 <aside class="checkins-pane" id="checkinsPane">
   <div class="checkins-resize-handle" id="checkinsResizeHandle" title="Drag to resize"></div>
-  <h3>Check-ins Today</h3>
+  <h3>Check-ins Today<span id="checkinsCount"></span></h3>
   <div class="checkins-list" id="checkinsList"></div>
 </aside>
 
@@ -948,7 +953,7 @@ function defaultNetData(){
       timeFormat:'12',
       checkinsPaneWidth:220,
       showIdTimer:true,
-      weather:{source:'off', station:'', tiles:{temp:true, humidity:true, wind:true, pressure:true, precip:true}},
+      weather:{source:'off', station:'', tiles:{temp:true, humidity:true, wind:true, pressure:true, precip:true, visibility:true, clouds:true}},
       netType:'rollcall',
       groups:[]
     },
@@ -1425,6 +1430,9 @@ function renderCheckinsList(){
   if(!list) return;
   const d = todayStr();
   const todays = DATA.qni.filter(q => q.date === d);
+  // "Check-ins Today: 12/40" — checked in today / active stations on the Roster
+  const countEl = document.getElementById('checkinsCount');
+  if(countEl) countEl.textContent = `: ${todays.length}/${DATA.roster.filter(r => !r.inactive).length}`;
   if(todays.length === 0){
     list.innerHTML = '<div class="checkins-empty">No check-ins yet today.</div>';
     return;
@@ -2044,8 +2052,71 @@ function escapeHtml(str){
 function renderPreamble(){
   document.getElementById('preambleDisplay').textContent = DATA.settings.preamble || '';
 }
+/* Preamble text size: Ctrl + mouse wheel (or a trackpad pinch), Ctrl + plus / minus, Ctrl + 0 to reset.
+   Saved on this device only, since a big monitor and a tablet want different sizes. */
+const PREAMBLE_FONT_DEFAULT = 15, PREAMBLE_FONT_MIN = 10, PREAMBLE_FONT_MAX = 60;
+const PREAMBLE_FONT_KEY = 'hamnet_preamble_font';
+let preambleFont = (()=>{
+  let n = NaN;
+  try{ n = parseFloat(localStorage.getItem(PREAMBLE_FONT_KEY)); }catch(e){}
+  return n >= PREAMBLE_FONT_MIN && n <= PREAMBLE_FONT_MAX ? n : PREAMBLE_FONT_DEFAULT;
+})();
+function preambleFontSize(){ return preambleFont; }
+function setPreambleFontSize(px, dontSave){
+  px = Math.round(Math.max(PREAMBLE_FONT_MIN, Math.min(PREAMBLE_FONT_MAX, px)));
+  preambleFont = px;
+  document.getElementById('preambleDisplay').style.fontSize = px + 'px';
+  if(dontSave) return;
+  try{
+    if(px === PREAMBLE_FONT_DEFAULT) localStorage.removeItem(PREAMBLE_FONT_KEY);
+    else localStorage.setItem(PREAMBLE_FONT_KEY, String(px));
+  }catch(e){}
+}
+setPreambleFontSize(preambleFontSize());
+document.getElementById('tab-preamble').addEventListener('wheel', e=>{
+  if(!e.ctrlKey) return;
+  e.preventDefault();
+  setPreambleFontSize(preambleFontSize() + (e.deltaY < 0 ? 1 : -1));
+}, {passive:false});
+/* Touch screens: two-finger pinch on the Preamble, saved when the fingers lift */
+(function(){
+  const tab = document.getElementById('tab-preamble');
+  let startDist = 0, startSize = 0;
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  tab.addEventListener('touchstart', e=>{
+    if(e.touches.length === 2){ startDist = dist(e.touches); startSize = preambleFontSize(); }
+  }, {passive:true});
+  tab.addEventListener('touchmove', e=>{
+    if(e.touches.length !== 2 || !startDist) return;
+    e.preventDefault();   // the pinch sizes the text, not the whole page
+    setPreambleFontSize(startSize * dist(e.touches) / startDist, true);
+  }, {passive:false});
+  function end(e){
+    if(!startDist || e.touches.length >= 2) return;
+    startDist = 0;
+    setPreambleFontSize(preambleFontSize());
+  }
+  tab.addEventListener('touchend', end);
+  tab.addEventListener('touchcancel', end);
+})();
+document.addEventListener('keydown', e=>{
+  if(currentTab !== 'preamble' || !(e.ctrlKey || e.metaKey) || e.altKey) return;
+  if(e.key === '+' || e.key === '=' ){ e.preventDefault(); setPreambleFontSize(preambleFontSize() + 1); }
+  else if(e.key === '-' || e.key === '_'){ e.preventDefault(); setPreambleFontSize(preambleFontSize() - 1); }
+  else if(e.key === '0'){ e.preventDefault(); setPreambleFontSize(PREAMBLE_FONT_DEFAULT); }
+});
 
 /* ============================= BIRTHDAYS TAB ============================= */
+/* "75th Birthday" when the year is known, otherwise just "Birthday" */
+function ordinal(n){
+  const s = ['th','st','nd','rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+function yearsLabel(dateStr, now, kind){
+  const m = /^(\d{4})-/.exec(dateStr || '');
+  const years = m ? now.getFullYear() - parseInt(m[1], 10) : 0;
+  return years > 0 ? `${ordinal(years)} ${kind}` : kind;
+}
 function renderBdays(){
   const now = new Date();
   const mm = String(now.getMonth()+1).padStart(2,'0');
@@ -2053,10 +2124,10 @@ function renderBdays(){
   const rows = [];
   DATA.roster.forEach(r=>{
     if(r.birthday && matchesTodayMonthDay(r.birthday, mm, dd)){
-      rows.push({call:r.callsign, name:r.name, spouse:r.spouse, type:'Birthday'});
+      rows.push({call:r.callsign, name:r.name, spouse:r.spouse, type:yearsLabel(r.birthday, now, 'Birthday')});
     }
     if(r.anniversary && matchesTodayMonthDay(r.anniversary, mm, dd)){
-      rows.push({call:r.callsign, name:r.name, spouse:r.spouse, type:'Anniversary'});
+      rows.push({call:r.callsign, name:r.name, spouse:r.spouse, type:yearsLabel(r.anniversary, now, 'Anniversary')});
     }
   });
   if(rows.length===0){
@@ -3374,7 +3445,7 @@ let wxLast = null, wxError = '', wxKey = '', wxTimer = null, wxGen = 0;
 function wxConfig(){
   const w = DATA.settings.weather || {};
   return {source: w.source || 'off', station: (w.station || '').trim().toUpperCase(),
-          tiles: Object.assign({temp:true, humidity:true, wind:true, pressure:true, precip:true}, w.tiles || {})};
+          tiles: Object.assign({temp:true, humidity:true, wind:true, pressure:true, precip:true, visibility:true, clouds:true}, w.tiles || {})};
 }
 const COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
 function wxWind(w){
@@ -3402,6 +3473,9 @@ function renderWeather(){
     t.wind     && ['Wind', wxWind(w)],
     t.pressure && ['Barometer', num(w.pressureIn, 2, '″')],
     t.precip   && [w.precipSpan === '24h' ? 'Precip 24h' : 'Precip today', num(w.precipIn, 2, '″')],
+    // Personal (WU) stations don't measure visibility or clouds, so those tiles are NWS only
+    t.visibility && cfg.source === 'nws' && ['Visibility', w.visibilityMi == null ? '—' : num(w.visibilityMi, w.visibilityMi < 3 ? 1 : 0, ' mi')],
+    t.clouds     && cfg.source === 'nws' && ['Clouds', w.clouds || '—'],
   ].filter(Boolean);
   // A reading older than 30 minutes (90 for hourly NWS reports) counts as stale
   const ageMin = w.observed ? Math.round((Date.now()/1000 - w.observed) / 60) : null;
@@ -3637,6 +3711,12 @@ document.getElementById('setTimeFormat').addEventListener('change', ()=>{
   tick();
 });
 
+/* The station's QRZ page: its saved URL if that's a QRZ address, otherwise qrz.com/db/CALL */
+function qrzPageUrl(r){
+  const u = (r.url || '').trim();
+  if(/^https:\/\/(www\.)?qrz\.com\//i.test(u)) return u;
+  return 'https://www.qrz.com/db/' + encodeURIComponent((r.callsign || '').toUpperCase());
+}
 function rosterEntryHtml(r, idx){
   const d = todayStr();
   const isToday = r.lastCheckin === d;
@@ -3655,7 +3735,7 @@ function rosterEntryHtml(r, idx){
         <div class="roster-field"><label>Birthday</label><input type="text" class="r-birthday" placeholder="YYYY-MM-DD, M/D, or YYYY" value="${escapeHtml(toEditableDateString(r.birthday||''))}"></div>
         <div class="roster-field"><label>Anniversary</label><input type="text" class="r-anniversary" placeholder="YYYY-MM-DD, M/D, or YYYY" value="${escapeHtml(toEditableDateString(r.anniversary||''))}"></div>
         <div class="roster-field"><label>Last Check-in</label><input type="date" class="r-lastcheckin" value="${escapeHtml(r.lastCheckin||'')}"></div>
-        <div class="roster-field"><label>QRZ URL</label><input type="text" class="r-url" value="${escapeHtml(r.url||'')}"></div>
+        <div class="roster-field"><label>QRZ</label>${r.callsign ? `<a class="external-link roster-qrz-link" href="${escapeHtml(qrzPageUrl(r))}" target="_blank" rel="noopener">QRZ Page</a>` : ''}</div>
         <div class="roster-field narrow" style="display:flex;flex-direction:column;">
           <label>Inactive</label>
           <input type="checkbox" class="r-inactive" style="width:auto;height:38px;" ${r.inactive?'checked':''}>
@@ -3674,11 +3754,19 @@ function rosterEntryHtml(r, idx){
           <button class="secondary r-qrz" title="Look this station up on QRZ.com: fresh photo, plus name, address, and email where blank">Get from QRZ</button>
         </div>` : ''}
       </div>
+      <div class="roster-line">
+        <div class="roster-field"><label>Notes</label><input type="text" class="r-notes" placeholder="Shown on the Main card at every net" value="${escapeHtml(stationNote(r))}"></div>
+      </div>
     </div>
   `;
 }
 
+function renderRosterCounts(){
+  const active = DATA.roster.filter(r => !r.inactive).length, total = DATA.roster.length;
+  document.getElementById('rosterCounts').textContent = `| Active: ${active} | Inactive: ${total - active} | Total: ${total} |`;
+}
 function renderRosterTable(){
+  renderRosterCounts();
   const list = sortedRoster();
   const container = document.getElementById('rosterList');
   container.innerHTML = list.map((r,i)=>rosterEntryHtml(r,i)).join('');
@@ -3697,7 +3785,8 @@ function renderRosterTable(){
         r.city = entry.querySelector('.r-city').value;
         r.location = entry.querySelector('.r-location').value;
         r.state = entry.querySelector('.r-state').value;
-        r.url = entry.querySelector('.r-url').value;
+        const notes = entry.querySelector('.r-notes').value.trim();
+        if(notes !== stationNote(r)) r.notes = notes;
         r.birthday = normalizeDateFlexible(entry.querySelector('.r-birthday').value);
         r.anniversary = normalizeDateFlexible(entry.querySelector('.r-anniversary').value);
         r.lastCheckin = entry.querySelector('.r-lastcheckin').value;
@@ -3914,6 +4003,11 @@ applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
 applyIdTimerVisibility();
 applyNetTypeUI();
 showTab('preamble');
+(async ()=>{
+  let v = window.HAMNET_APP_VERSION || '';
+  if(!v && hamnetIsTauri()){ try{ v = await window.__TAURI__.app.getVersion(); }catch(e){} }
+  document.getElementById('appVersion').textContent = v ? 'Version ' + v : '';
+})();
 if(HAMNET_REMOTE){
   labelRemoteBackButtons();
   if(remoteReturnIsConnectOnly()) document.documentElement.classList.add('app-remote');

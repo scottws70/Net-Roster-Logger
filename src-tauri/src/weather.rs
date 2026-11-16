@@ -36,6 +36,10 @@ pub struct Weather {
     gust_mph: Option<f64>,
     pressure_in: Option<f64>,
     precip_in: Option<f64>,
+    /// Visibility in miles (NWS airport stations only)
+    visibility_mi: Option<f64>,
+    /// Sky cover, e.g. "Broken@2500 ft", "Scattered@12000 ft", "Clear" (NWS only)
+    clouds: Option<String>,
     /// What the precip figure covers: "today" (WU, since local midnight) or "24h" (NWS)
     precip_span: String,
 }
@@ -113,6 +117,8 @@ fn parse_wu(station: &str, v: &Value) -> Result<Weather, String> {
         gust_mph: imp["windGust"].as_f64(),
         pressure_in: imp["pressure"].as_f64(),
         precip_in: imp["precipTotal"].as_f64(),
+        visibility_mi: None,
+        clouds: None,
         precip_span: "today".into(),
     })
 }
@@ -128,6 +134,38 @@ fn nws_value(q: &Value) -> Option<f64> {
         "Pa" => v / 3386.389,
         "mm" => v / 25.4,
         _ => v,
+    })
+}
+
+/// The layer that matters most to a pilot or a net: the ceiling (lowest broken, overcast, or
+/// obscured layer), otherwise the most-covering layer. Heights are rounded to 100 ft.
+fn nws_clouds(layers: &Value) -> Option<String> {
+    let layers = layers.as_array()?;
+    if layers.is_empty() {
+        return None;
+    }
+    let rank = |a: &str| match a { "FEW" => 1, "SCT" => 2, "BKN" => 3, "OVC" => 4, "VV" => 5, _ => 0 };
+    let name = |a: &str| match a {
+        "FEW" => "Few", "SCT" => "Scattered", "BKN" => "Broken", "OVC" => "Overcast", "VV" => "Obscured",
+        _ => "Clear",
+    };
+    let feet = |l: &Value| -> Option<i64> {
+        let v = l["base"]["value"].as_f64()?;
+        let ft = if l["base"]["unitCode"].as_str().unwrap_or("").ends_with(":ft") { v } else { v * 3.28084 };
+        Some(((ft / 100.0).round() * 100.0) as i64)
+    };
+    let pick = layers
+        .iter()
+        .filter(|l| rank(l["amount"].as_str().unwrap_or("")) >= 3)
+        .min_by_key(|l| feet(l).unwrap_or(i64::MAX))
+        .or_else(|| layers.iter().max_by_key(|l| rank(l["amount"].as_str().unwrap_or(""))))?;
+    let amount = pick["amount"].as_str().unwrap_or("");
+    if rank(amount) == 0 {
+        return Some("Clear".into());
+    }
+    Some(match feet(pick) {
+        Some(ft) => format!("{}@{} ft", name(amount), ft),
+        None => name(amount).to_string(),
     })
 }
 
@@ -170,6 +208,9 @@ fn parse_nws(station: &str, v: &Value, now: i64) -> Result<Weather, String> {
         gust_mph: nws_value(&props[0]["windGust"]),
         pressure_in: first("barometricPressure"),
         precip_in: if recent.is_empty() { None } else { Some(precip) },
+        // Visibility comes in meters
+        visibility_mi: props.iter().find_map(|p| p["visibility"]["value"].as_f64()).map(|m| m / 1609.344),
+        clouds: props.iter().find_map(|p| nws_clouds(&p["cloudLayers"])),
         precip_span: "24h".into(),
     })
 }
@@ -281,6 +322,16 @@ mod tests {
         assert_eq!(w.precip_in, Some(0.12));
         assert_eq!(w.precip_span, "today");
         assert!(parse_wu("X", &json!({"observations": []})).is_err());
+    }
+
+    #[test]
+    fn reads_clouds() {
+        let l = |a: &str, m: f64| json!({"amount": a, "base": {"unitCode": "wmoUnit:m", "value": m}});
+        // The ceiling (lowest broken/overcast) wins over a lower scattered layer
+        assert_eq!(nws_clouds(&json!([l("SCT", 300.0), l("BKN", 762.0), l("OVC", 3000.0)])).unwrap(), "Broken@2500 ft");
+        assert_eq!(nws_clouds(&json!([l("FEW", 600.0), l("SCT", 3657.6)])).unwrap(), "Scattered@12000 ft");
+        assert_eq!(nws_clouds(&json!([{"amount": "CLR", "base": {"value": null}}])).unwrap(), "Clear");
+        assert!(nws_clouds(&json!([])).is_none());
     }
 
     #[test]

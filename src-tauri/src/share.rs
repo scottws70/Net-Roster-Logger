@@ -334,7 +334,11 @@ fn page(inner: &Inner, paired: bool) -> String {
     };
     // Keep user text in the data from closing the <script> tag early
     let info = info.replace("</", "<\\/").replace("<!--", "<\\!--");
-    let inject = format!("<script>window.HAMNET_REMOTE = {};</script>\n<script>", info);
+    let inject = format!(
+        "<script>window.HAMNET_REMOTE = {}; window.HAMNET_APP_VERSION = \"{}\";</script>\n<script>",
+        info,
+        env!("CARGO_PKG_VERSION")
+    );
     PAGE.replacen("<script>", &inject, 1)
 }
 
