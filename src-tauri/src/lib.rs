@@ -4,6 +4,7 @@ use std::path::Path;
 mod mail;
 mod qrz;
 mod share;
+mod store;
 mod weather;
 
 /// Saves a text file into a chosen folder. If a file with `filename` already
@@ -87,12 +88,25 @@ fn read_csv_folder(dir: String) -> Result<Vec<CsvFile>, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // A second copy of the app would overwrite the first one's saves: bring the open
+    // window forward instead. (Not in development builds, which keep their own nets.)
+    #[cfg(all(desktop, not(debug_assertions)))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        use tauri::Manager;
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.unminimize();
+            let _ = w.show();
+            let _ = w.set_focus();
+        }
+    }));
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .manage(qrz::QrzSession::default())
         .manage(share::ShareState::default())
+        .manage(store::StoreState::default())
         .setup(|app| {
             // Sharing (serving this computer's nets to other devices) and in-app
             // updates are desktop-only
@@ -129,7 +143,15 @@ pub fn run() {
             share::share_set,
             share::share_new_code,
             share::share_publish,
-            share::share_probe
+            share::share_probe,
+            store::store_load,
+            store::store_save,
+            store::store_migrate,
+            store::store_snapshots,
+            store::store_snapshot_read,
+            store::store_keep_before_restore,
+            store::store_folder,
+            store::store_open_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

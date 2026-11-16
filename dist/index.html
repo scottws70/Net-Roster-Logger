@@ -294,6 +294,8 @@
     display:inline-block;margin-left:12px;font-size:13px;color:var(--good);
   }
   .flash.bad{color:var(--bad);}
+  .snap-row{display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--border-soft);font-size:14px;}
+  .snap-row span{flex:1;}
 
   .report-nums{display:flex;gap:24px;margin-top:18px;}
   .report-nums .num-box{background:var(--panel-alt);border:1px solid var(--border);border-radius:6px;padding:14px 22px;}
@@ -475,7 +477,7 @@ window.hamnetSplashDone = (function(){
   });
 })();
 </script>
-<div id="saveFailBanner" hidden>Your latest changes could NOT be saved on this device — its storage is full or blocked. Make a Backup now (Reports tab) so nothing is lost.</div>
+<div id="saveFailBanner" hidden>Your latest changes could NOT be saved on this device. Make a Backup now (Reports tab) so nothing is lost.</div>
 <div id="remoteBanner" hidden>Lost connection to the main computer — retrying… Changes here will be sent when it's back.</div>
 <div class="modal-overlay" id="remoteOverlay">
   <div class="modal-box" style="max-width:420px;">
@@ -686,13 +688,23 @@ window.hamnetSplashDone = (function(){
 
     <div class="settings-section" style="margin-top:26px;padding-top:22px;border-top:1px solid var(--border-soft);">
       <h3>Backup &amp; Restore</h3>
-      <p class="hint no-app-remote">Everything is stored only on this device. Back up regularly so a cleared cache or a new machine doesn't cost you the roster and check-in history. A Backup holds the net that's open now; with more than one net, back up each one.</p>
+      <p class="hint no-app-remote">Everything is stored only on this device. Back up regularly so a failed disk or a new machine doesn't cost you the roster and check-in history. A Backup holds the net that's open now; with more than one net, back up each one.</p>
       <p class="hint only-app-remote">Make Backups on the main computer. <b>Restore</b> here replaces the net that's open on the main computer with the backup.</p>
       <div class="row" style="align-items:center;">
         <button class="secondary no-app-remote" id="backupBtn">Backup This Net</button>
         <button class="secondary" id="restoreBtn">Restore This Net</button>
         <input type="file" id="restoreFileInput" accept=".json,application/json" style="display:none;">
         <span class="flash" id="backupFlash"></span>
+      </div>
+      <div id="snapBox" hidden style="margin-top:20px;">
+        <h3>Automatic Snapshots</h3>
+        <p class="hint">The app keeps its own copy of this net from before each day's changes, for the last 7 days it changed. <b>Restore</b> puts this net back to that copy. The net as it is now is kept as "Before the last restore", so a restore can be undone.</p>
+        <div id="snapList"></div>
+        <div class="row" style="align-items:center;margin-top:12px;">
+          <button class="secondary" id="openDataFolder" title="Advanced: the folder where the app keeps your nets and snapshots. You don't normally need it, except to move everything to a new computer.">Open Data Folder</button>
+          <span class="flash" id="snapFlash"></span>
+        </div>
+        <p class="hint" id="dataFolderHint" style="word-break:break-all;"></p>
       </div>
     </div>
 
@@ -1054,6 +1066,14 @@ function defaultStore(){
 const HAMNET_REMOTE = window.HAMNET_REMOTE || null;
 const REMOTE_OK = !!(HAMNET_REMOTE && HAMNET_REMOTE.paired && HAMNET_REMOTE.ready && HAMNET_REMOTE.store);
 
+/* The desktop app keeps its nets in files in the app's data folder, read and written by
+   the Rust side (store.rs), not in the web view's own storage. Until those files have
+   been read at startup (bootFileStore), STORE holds only what the web view has, which
+   may be old: nothing is saved or shared before STORE_READY, so it can never be written
+   over the real nets. A web browser, and a page opened from another computer, start ready. */
+let FILE_STORE = hamnetIsTauri() && !hamnetIsAndroid();
+let STORE_READY = !FILE_STORE;
+
 function normalizeStore(parsed){
   if(!parsed || !parsed.nets || !Object.keys(parsed.nets).length) return null;
   Object.keys(parsed.nets).forEach(id=>{
@@ -1096,13 +1116,13 @@ function loadStore(){
 let STORE = loadStore();
 let DATA = STORE.nets[STORE.activeNetId];
 
-/* Location starts as each station's City. A city that a QRZ lookup replaced was kept in
-   Notes as "Listed as: N of McCook, NE"; that original wording is the better start. */
-/* Callsigns stored with a slashed zero (before normCall existed) get a real 0. Their QRZ
-   lookup failed under the Ø spelling, so it's cleared for Fetch Missing to try again. */
-(function fixSlashedZeros(){
+/* Tidies data saved by older versions. Returns true if anything changed (so it gets saved). */
+function migrateStore(){
   let changed = false;
+  const today = todayStr();
   Object.values(STORE.nets).forEach(net=>{
+    /* Callsigns stored with a slashed zero (before normCall existed) get a real 0. Their QRZ
+       lookup failed under the Ø spelling, so it's cleared for Fetch Missing to try again. */
     (net.roster || []).forEach(r=>{
       const fixed = normCall(r.callsign);
       if(fixed === r.callsign) return;
@@ -1113,40 +1133,39 @@ let DATA = STORE.nets[STORE.activeNetId];
     (net.qni || []).forEach(q=>{
       const fixed = normCall(q.callsign);
       if(fixed !== q.callsign){ q.callsign = fixed; changed = true; }
+      /* A check-in remembers the station's earlier Last Check-in so it can be undone, which only
+         matters the day it's made. Dropping it from older check-ins keeps the saved data small. */
+      if(q.prev && q.date !== today){ delete q.prev; changed = true; }
+    });
+    /* Location starts as each station's City. A city that a QRZ lookup replaced was kept in
+       Notes as "Listed as: N of McCook, NE"; that original wording is the better start. */
+    (net.roster || []).forEach(r=>{
+      if(r.location !== undefined) return;
+      const m = /Listed as: ([^·]+?)(?:, [A-Za-z]{2})?\s*(?:·|$)/.exec(r.notes || '');
+      r.location = m ? m[1].trim() : (r.city || '');
+      changed = true;
     });
   });
-  if(changed) saveData();
-})();
-/* A check-in remembers the station's earlier Last Check-in so it can be undone, which only
-   matters the day it's made. Dropping it from older check-ins keeps the saved data small. */
-(function dropOldUndoInfo(){
-  const today = todayStr();
-  let changed = false;
-  Object.values(STORE.nets).forEach(net => (net.qni || []).forEach(q=>{
-    if(q.prev && q.date !== today){ delete q.prev; changed = true; }
-  }));
-  if(changed) saveData();
-})();
-(function fillLocations(){
-  let changed = false;
-  Object.values(STORE.nets).forEach(net => (net.roster || []).forEach(r=>{
-    if(r.location !== undefined) return;
-    const m = /Listed as: ([^·]+?)(?:, [A-Za-z]{2})?\s*(?:·|$)/.exec(r.notes || '');
-    r.location = m ? m[1].trim() : (r.city || '');
-    changed = true;
-  }));
-  if(changed) saveData();
-})();
+  return changed;
+}
+if(migrateStore()) saveData();
 
 function saveData(){
+  if(!STORE_READY) return;   // the real nets haven't been read yet (see FILE_STORE)
   pendingIncoming = null;   // a change made here wins over a not-yet-shown one from elsewhere
   if(HAMNET_REMOTE){ remoteSave(); return; }
   storeToDisk();
   sharePublish();
 }
-/* Writes the store to this device. If that fails (storage full or blocked), a red bar
-   says so until a later save works: otherwise the changes would quietly vanish on restart. */
+/* Writes the store to this device: the app's data files in the desktop app, the browser's
+   storage otherwise. If that fails, a red bar says so until a later save works: otherwise
+   the changes would quietly vanish on restart. */
+function showSaveFailed(failed){
+  const bar = document.getElementById('saveFailBanner');
+  if(bar) bar.hidden = !failed;
+}
 function storeToDisk(){
+  if(FILE_STORE){ fileSave(); return; }
   let ok = true;
   try{
     localStorage.setItem(STORE_KEY, JSON.stringify(STORE));
@@ -1154,8 +1173,25 @@ function storeToDisk(){
     ok = false;
     console.error('Storage write failed.', e);
   }
-  const bar = document.getElementById('saveFailBanner');
-  if(bar) bar.hidden = ok;
+  showSaveFailed(!ok);
+}
+/* One save at a time; changes made while one is being written go out right after it. */
+var fileSaving = false, fileDirty = false;
+async function fileSave(){
+  if(!STORE_READY) return;
+  if(fileSaving){ fileDirty = true; return; }
+  fileSaving = true;
+  do{
+    fileDirty = false;
+    try{
+      await window.__TAURI__.core.invoke('store_save', {store: JSON.stringify(STORE), today: todayStr()});
+      showSaveFailed(false);
+    }catch(e){
+      console.error('Saving the nets failed.', e);
+      showSaveFailed(true);
+    }
+  }while(fileDirty);
+  fileSaving = false;
 }
 
 /* ---------- Sharing between devices ----------
@@ -1164,6 +1200,7 @@ function storeToDisk(){
    until you leave the box (and is dropped if you change something yourself first). */
 var pendingIncoming = null;
 function applyIncomingStore(store){
+  if(!STORE_READY) return;
   pendingIncoming = store;
   tryApplyIncoming();
 }
@@ -1196,7 +1233,7 @@ function redrawAll(){
 /* This computer, when sharing is on: hand each save to the sharing server. */
 var SHARE_ON = false, sharePubTimer = null;
 function sharePublish(now){
-  if(!SHARE_ON) return;
+  if(!SHARE_ON || !STORE_READY) return;
   clearTimeout(sharePubTimer);
   const send = ()=> window.__TAURI__.core.invoke('share_publish', {store: JSON.stringify(STORE)}).catch(e => console.warn('Sharing update failed:', e));
   if(now) send(); else sharePubTimer = setTimeout(send, 150);
@@ -1804,6 +1841,7 @@ function showTab(tab){
   if(tab==='traffic') renderTrafficIfEmpty();
   if(tab==='settings') renderSettings();
   if(tab==='roster') renderRosterTable();
+  if(tab==='reports') renderSnapshots();
 }
 document.getElementById('tabNav').addEventListener('click', e=>{
   const btn = e.target.closest('button[data-tab]');
@@ -3233,7 +3271,7 @@ document.getElementById('restoreFileInput').addEventListener('change', (e)=>{
   if(!file) return;
   const flash = document.getElementById('backupFlash');
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     let parsed;
     try{
       parsed = JSON.parse(reader.result);
@@ -3254,6 +3292,7 @@ document.getElementById('restoreFileInput').addEventListener('change', (e)=>{
       `This will REPLACE the Roster, check-in history, and Settings of "${DATA.settings.netName || 'this net'}". This cannot be undone.`
     );
     if(!confirmed){ e.target.value = ''; return; }
+    await keepBeforeRestore();
     DATA.settings = Object.assign(defaultNetData().settings, parsed.settings || {});
     DATA.roster = Array.isArray(parsed.roster) ? parsed.roster : [];
     DATA.qni = Array.isArray(parsed.qni) ? parsed.qni : [];
@@ -3274,6 +3313,7 @@ document.getElementById('restoreFileInput').addEventListener('change', (e)=>{
     flash.textContent = `Restored ${DATA.roster.length} station(s).`;
     flash.classList.remove('bad');
     e.target.value = '';
+    renderSnapshots();
   };
   reader.onerror = () => {
     flash.textContent = 'Could not read that file.';
@@ -3281,6 +3321,132 @@ document.getElementById('restoreFileInput').addEventListener('change', (e)=>{
   };
   reader.readAsText(file);
 });
+
+/* ---------- Automatic snapshots (desktop app: kept by the Rust side, see store.rs) ---------- */
+function snapFlash(text, bad){
+  const el = document.getElementById('snapFlash');
+  el.textContent = text;
+  el.classList.toggle('bad', !!bad);
+}
+function snapshotLabel(sn){
+  if(sn.name === 'before-restore'){
+    const when = sn.modified ? new Date(sn.modified).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
+    return 'Before the last restore' + (when ? ` (${when})` : '');
+  }
+  return 'Before the changes on ' + safeLocaleDate(new Date(sn.name + 'T00:00:00'), false);
+}
+/* Keeps the open net as it is now, so the restore about to replace it can be undone */
+async function keepBeforeRestore(){
+  if(!FILE_STORE || !STORE_READY) return;
+  try{
+    await window.__TAURI__.core.invoke('store_keep_before_restore', {netId: STORE.activeNetId, contents: JSON.stringify(DATA)});
+  }catch(e){ console.warn("Couldn't keep a copy before restoring:", e); }
+}
+let snapGen = 0;
+async function renderSnapshots(){
+  const box = document.getElementById('snapBox');
+  if(!FILE_STORE || !STORE_READY){ box.hidden = true; return; }
+  box.hidden = false;
+  const gen = ++snapGen, netId = STORE.activeNetId;
+  const list = document.getElementById('snapList');
+  const invoke = window.__TAURI__.core.invoke;
+  invoke('store_folder').then(dir => { document.getElementById('dataFolderHint').textContent = 'Your nets are kept in ' + dir; }).catch(()=>{});
+  let snaps;
+  try{ snaps = await invoke('store_snapshots', {netId}); }
+  catch(e){ if(gen === snapGen) list.innerHTML = `<p class="empty-msg">${escapeHtml("Couldn't read the snapshots: " + e)}</p>`; return; }
+  if(gen !== snapGen) return;   // another net was opened meanwhile
+  if(!snaps.length){
+    list.innerHTML = '<p class="empty-msg" style="padding:4px 0;">No snapshots of this net yet. One is made the next day it changes.</p>';
+    return;
+  }
+  list.innerHTML = snaps.map(sn =>
+    `<div class="snap-row"><span>${escapeHtml(snapshotLabel(sn))}</span><button class="secondary snap-restore" data-name="${escapeHtml(sn.name)}">Restore</button></div>`).join('');
+  list.querySelectorAll('.snap-restore').forEach(btn => btn.addEventListener('click', async ()=>{
+    const sn = snaps.find(x => x.name === btn.dataset.name);
+    const label = snapshotLabel(sn);
+    const netName = DATA.settings.netName || 'this net';
+    if(STORE.activeNetId !== netId) return;
+    if(!confirm(`Put "${netName}" back to this copy?\n\n${label}\n\nIts Roster, check-in history, and Settings will be replaced. The net as it is now will be kept as "Before the last restore".`)) return;
+    try{
+      const net = JSON.parse(await invoke('store_snapshot_read', {netId, name: sn.name}));
+      await keepBeforeRestore();
+      STORE.nets[netId] = Object.assign(defaultNetData(), net);
+      DATA = STORE.nets[netId];
+      saveData();
+      hideReportNums(); hideStaleReport(); hideNetReportLine(); hideNetReport(); hideMgrReport();
+      redrawAll();
+      snapFlash(`"${DATA.settings.netName || netName}" restored: ${label.charAt(0).toLowerCase() + label.slice(1)}.`);
+    }catch(e){ snapFlash("Couldn't restore that snapshot: " + e, true); }
+  }));
+}
+document.getElementById('openDataFolder').addEventListener('click', ()=>{
+  window.__TAURI__.core.invoke('store_open_folder').catch(e => snapFlash("Couldn't open the folder: " + e, true));
+});
+
+/* ---------- Desktop app startup: read the nets from their files ----------
+   First run of a version with file storage: the web view's data is moved into files
+   (and the web view's copy is left as it was, never written again). */
+function showStoreProblem(text){
+  const bar = document.getElementById('saveFailBanner');
+  bar.textContent = text;
+  bar.hidden = false;
+}
+function storeNowReady(mustSave){
+  STORE_READY = true;
+  const changed = migrateStore();
+  if(changed || mustSave) saveData();
+  redrawAll();
+  sharePublish(true);
+}
+async function bootFileStore(){
+  const invoke = window.__TAURI__.core.invoke;
+  let res, parsed;
+  try{
+    res = await invoke('store_load');
+    if(res.exists) parsed = JSON.parse(res.store);
+  }catch(e){
+    // The files are there but can't be read: showing or saving anything else could cost the real nets
+    console.error('Reading the nets failed.', e);
+    showStoreProblem("Couldn't read your nets: " + e + ' Nothing will be saved until this is fixed. Close the app and open it again.');
+    return;
+  }
+  if(!res.exists){
+    let original = null;
+    try{ original = localStorage.getItem(STORE_KEY) || localStorage.getItem(LEGACY_KEY); }catch(e){}
+    try{
+      await invoke('store_migrate', {store: JSON.stringify(STORE), original, today: todayStr()});
+    }catch(e){
+      // Carry on exactly as before this version, in the web view's storage
+      console.error('Moving the nets to files failed.', e);
+      FILE_STORE = false;
+      storeNowReady(true);
+      alert("The app couldn't move your nets into its data folder, so it is still keeping them the old way. Nothing was lost.\n\n" + e);
+      return;
+    }
+    storeNowReady(false);
+    return;
+  }
+  let recovered = false;
+  for(const p of res.problems){
+    const what = `One of your nets couldn't be read: its file is damaged. The damaged file was kept as ${p.keptAs} in the data folder.`;
+    if(!p.newestSnapshot){ alert(what + '\n\nThere is no snapshot of it to fall back on. If you have a Backup of it, use Restore This Net.'); continue; }
+    const when = safeLocaleDate(new Date(p.newestSnapshot + 'T00:00:00'), false);
+    if(!confirm(what + `\n\nOpen its newest snapshot instead (from before the changes on ${when})?`)) continue;
+    try{
+      parsed.nets[p.id] = JSON.parse(await invoke('store_snapshot_read', {netId: p.id, name: p.newestSnapshot}));
+      recovered = true;
+    }catch(e){ alert("That snapshot couldn't be read either: " + e); }
+  }
+  let store = normalizeStore(parsed);
+  if(!store){
+    alert("None of your nets could be read, so the app is starting with a new, empty net. The files are still in the data folder (Reports > Open Data Folder).");
+    store = defaultStore();
+    recovered = true;
+  }
+  STORE = store;
+  DATA = STORE.nets[STORE.activeNetId];
+  storeNowReady(recovered);
+}
 
 /* ============================= CSV IMPORT ============================= */
 function parseCSV(text){
@@ -4542,6 +4708,10 @@ showTab('preamble');
   if(!v && hamnetIsTauri()){ try{ v = await window.__TAURI__.app.getVersion(); }catch(e){} }
   document.getElementById('appVersion').textContent = v ? 'Version ' + v : '';
 })();
+if(FILE_STORE) bootFileStore().catch(e=>{
+  console.error('Startup failed.', e);
+  showStoreProblem("Couldn't read your nets: " + e + ' Nothing will be saved until this is fixed. Close the app and open it again.');
+});
 if(HAMNET_REMOTE){
   labelRemoteBackButtons();
   if(remoteReturnIsConnectOnly()) document.documentElement.classList.add('app-remote');

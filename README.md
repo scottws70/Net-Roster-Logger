@@ -137,6 +137,7 @@ Drag the panel's left edge to resize it; the text scales up or down with the wid
 - **This Month** — total check-ins and QTC for the current calendar month, plus **Net Sessions**: the number of distinct days this month with at least one check-in — a stand-in for how many times the net actually ran. Check-ins counts every check-in, so a station that checked in on 4 nets this month counts 4 times.
 - **Stale Check-ins (>30 days)** — lists every station whose Last Check-in is older than 30 days (or who has never checked in), sorted most-overdue first. Each row has a **✕** to remove that one station from the Roster, or use **Remove All Listed** to clear the whole batch at once. **Mark All Listed Inactive** is the gentler option: it hides them all from the Main roll call without deleting them, and each one comes back automatically the next time it checks in (stations already Inactive are marked "(inactive)" in the list). All three ask for confirmation first.
 - **Backup This Net** / **Restore This Net** — see [Backup & Restore and Data Safety](#backup-restore-and-data-safety).
+- **Automatic Snapshots** — the app's own daily copies of the net, each with a **Restore** button, and **Open Data Folder**. Installed app on a computer only. See [Automatic Snapshots](#automatic-snapshots).
 
 ## Settings Tab
 
@@ -323,7 +324,25 @@ Everything — Roster, check-in history, settings — is stored locally. There's
 
 **Backup This Net**, on the [Reports](#reports) tab, downloads a dated JSON snapshot of the net that's open, named `[Net Name]-Backup-[date].json`; **Restore This Net** loads one back in, replacing everything currently in that net. If you keep more than one net, back up each one.
 
-If the app ever can't save your changes on the device (its storage is full or blocked), a red bar across the top says so. Make a Backup right away if you see it.
+If the app ever can't save your changes on the device, a red bar across the top says so. Make a Backup right away if you see it.
+
+### Where your nets are kept
+
+The installed app on a computer keeps each net in its own file, in the app's own data folder, and saves after every change. (Before version 1.45 they were kept inside the app's built-in browser storage. The first time 1.45 or later starts, it moves them into files for you and checks that every net arrived intact; the old copy is left where it was.) A web browser, when you open the page directly, still uses that browser's own storage.
+
+- The folder is kept when you uninstall or update, so reinstalling picks your nets back up.
+- To move everything to a new computer, copy the folder across: **Reports → Open Data Folder** shows where it is. You don't otherwise need to touch it.
+- Only one copy of the app runs at a time; starting it again brings the open window forward.
+
+### Automatic Snapshots
+
+On top of your own Backups, the installed app keeps its own copy of each net **from before each day's changes**, for the last **7 days that net changed** (so a weekly net keeps about seven weeks). They're listed under **Automatic Snapshots** on the Reports tab, for the net that's open.
+
+- **Restore** puts the net back to that copy.
+- The net as it was just before a restore (from a snapshot or from a Backup file) is kept as **Before the last restore**, so a restore can be undone.
+- If a net's file is ever damaged, the app says so at startup and offers that net's newest snapshot. The damaged file is kept, not deleted.
+
+Snapshots live in the same data folder, so they protect against mistakes, not against losing the computer. Keep making Backups.
 
 Back up <em><strong>frequently. At least once a week.</em></strong>
 
