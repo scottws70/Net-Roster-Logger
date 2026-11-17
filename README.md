@@ -314,8 +314,8 @@ The **Check-ins Today** panel shows each station as Callsign, then Name - State 
 Below the check-in form, the **Traffic Board** lists today's check-ins grouped by area/region, with a column for each destination:
 
 - Change a station's **Group** from its dropdown.
-- Type in or correct the number of messages listed **To** each place; QTC updates to match.
-- Tick **Sent** once that traffic has been passed. (QTC counts traffic *listed*, so Sent doesn't change it.)
+- Type in or correct the number of messages listed **To** each place.
+- Tick **Sent** once that traffic has been passed. **Only traffic ticked Sent is counted** as QTC: in the Net Session box, the net report line, the Today and This Month reports, and the Net Report's Traffic, To, and From columns. Traffic that was listed but never passed isn't reported.
 - The **Totals** row shows how many messages are listed to each place, and how many of them have been sent.
 
 ## Backup & Restore and Data Safety
