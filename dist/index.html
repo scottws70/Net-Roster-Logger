@@ -439,6 +439,14 @@ a.external-link:hover{text-decoration:underline;}
 #updateBar .update-msg:empty{display:none;}
 #updateBar .btn-row{display:flex;gap:8px;flex-wrap:wrap;}
 #updateCheckBtn{font-size:12px;padding:3px 10px;font-family:var(--sans);}
+#whatsNewModal{z-index:310;padding:16px;}
+#whatsNewModal .modal-box{text-align:left;width:100%;max-width:620px;padding:22px 26px;}
+#whatsNewBody{max-height:60vh;overflow-y:auto;line-height:1.5;font-size:14px;margin-bottom:16px;}
+#whatsNewBody ul{margin:0;padding-left:20px;}
+#whatsNewBody li{margin:0 0 8px;}
+#whatsNewBody p{color:var(--text);margin:0 0 10px;}
+#whatsNewBody h4{margin:12px 0 6px;color:var(--accent);}
+#whatsNewBody code{font-family:var(--mono);font-size:12.5px;}
 </style>
 </head>
 <body>
@@ -541,8 +549,8 @@ window.hamnetSplashDone = (function(){
   <button data-tab="main"><span class="dot"></span>Main</button>
   <button data-tab="endlist"><span class="dot"></span>End of the List</button>
   <button data-tab="reports"><span class="dot"></span>Reports</button>
+  <button data-tab="roster"><span class="dot"></span>Net Setup</button>
   <button data-tab="settings"><span class="dot"></span>Settings</button>
-  <button data-tab="roster"><span class="dot"></span>Roster</button>
 </nav>
 
 <div class="content-wrap">
@@ -716,62 +724,6 @@ window.hamnetSplashDone = (function(){
   <!-- SETTINGS TAB -->
   <section class="tabpanel panel" id="tab-settings" style="display:none;">
     <h2 class="tab-title" style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;">Settings<span style="display:flex;align-items:baseline;gap:10px;"><span id="appVersion" style="font-size:13px;font-weight:400;color:var(--text-dim);font-family:var(--mono);"></span><button class="secondary" id="updateCheckBtn" hidden>Check for Updates</button></span></h2>
-
-    <div class="settings-section">
-      <h3>Net Profile</h3>
-      <p class="hint">Each net profile has its own Roster, check-in history, and settings — use this to run multiple nets (e.g. a daily net and a weekly net) from the same app without mixing their rosters.</p>
-      <div class="row" style="align-items:flex-end;">
-        <div class="field" style="max-width:300px;">
-          <label>Active Net</label>
-          <select id="setActiveNet"></select>
-        </div>
-        <div class="field" style="max-width:160px;">
-          <button class="secondary" id="newNetBtn" style="width:100%;">+ New Net</button>
-        </div>
-        <div class="field" style="max-width:160px;">
-          <button class="secondary" id="deleteNetBtn" style="width:100%;color:var(--bad);border-color:var(--bad);">Delete This Net</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <h3>Net Type</h3>
-      <div class="field" style="max-width:300px;">
-        <label>This net is a</label>
-        <select id="setNetType">
-          <option value="rollcall">Roll Call Net</option>
-          <option value="traffic">Traffic Net</option>
-        </select>
-      </div>
-      <p class="hint">Roll Call Net is the standard roster roll call (Main, Early Check-ins, End of the List, Birthdays &amp; Anniversaries, Traffic). Traffic Net simplifies this: Birthdays &amp; Anniversaries, Traffic, and End of the List are hidden, and Early Check-ins becomes the main screen with Callsign, Name, State, and the traffic each station is holding.</p>
-    </div>
-
-    <div class="settings-section" id="trafficGroupsSection" style="display:none;">
-      <h3>Traffic Groups</h3>
-      <p class="hint">The areas, regions, or states this net sorts stations into, and logs traffic to — e.g. EAN, R5, R9, R10, WAN for an Area net, or one group per state for a single-region net. Each station is placed automatically from its roster State (checked first), then Region, then Area. "Matches" can list several values separated by commas (e.g. IA, NE, MO). With no groups, Main uses a single QTC and Destination field instead.</p>
-      <div class="group-list" id="groupList"></div>
-      <div class="row">
-        <button class="secondary" id="addGroupBtn">+ Add Group</button>
-        <button class="secondary" id="presetCentralBtn">Use NTS Central Area preset</button>
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <h3>Net Info</h3>
-      <div class="row">
-        <div class="field"><label>Net Name</label><input type="text" id="setNetName"></div>
-        <div class="field mono-field"><label>NCS Callsign</label><input type="text" id="setNcs"></div>
-      </div>
-      <div class="row">
-        <div class="field"><label>Net Manager</label><input type="text" id="setNetMgr"></div>
-        <div class="field"><label>Net Mgr Email</label><input type="email" id="setNetMgrEmail" autocomplete="off"></div>
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <h3>Preamble Script</h3>
-      <div class="field"><textarea id="setPreamble" rows="6"></textarea></div>
-    </div>
 
     <div class="settings-section">
       <h3 id="displaySettingsTitle">Display</h3>
@@ -953,9 +905,68 @@ window.hamnetSplashDone = (function(){
     </div>
   </section>
 
-  <!-- ROSTER TAB -->
+  <!-- NET SETUP TAB (net profile, type, info, preamble, roster) -->
   <section class="tabpanel panel" id="tab-roster" style="display:none;">
-    <h2 class="tab-title">Roster</h2>
+    <h2 class="tab-title">Net Setup</h2>
+
+    <div class="settings-section">
+      <h3>Net Profile</h3>
+      <p class="hint">Each net profile has its own Roster, check-in history, and settings — use this to run multiple nets (e.g. a daily net and a weekly net) from the same app without mixing their rosters.</p>
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="max-width:300px;">
+          <label>Active Net</label>
+          <select id="setActiveNet"></select>
+        </div>
+        <div class="field" style="max-width:160px;">
+          <button class="secondary" id="newNetBtn" style="width:100%;">+ New Net</button>
+        </div>
+        <div class="field" style="max-width:160px;">
+          <button class="secondary" id="deleteNetBtn" style="width:100%;color:var(--bad);border-color:var(--bad);">Delete This Net</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Net Type</h3>
+      <div class="field" style="max-width:300px;">
+        <label>This net is a</label>
+        <select id="setNetType">
+          <option value="rollcall">Roll Call Net</option>
+          <option value="traffic">Traffic Net</option>
+        </select>
+      </div>
+      <p class="hint">Roll Call Net is the standard roster roll call (Main, Early Check-ins, End of the List, Birthdays &amp; Anniversaries, Traffic). Traffic Net simplifies this: Birthdays &amp; Anniversaries, Traffic, and End of the List are hidden, and Early Check-ins becomes the main screen with Callsign, Name, State, and the traffic each station is holding.</p>
+    </div>
+
+    <div class="settings-section" id="trafficGroupsSection" style="display:none;">
+      <h3>Traffic Groups</h3>
+      <p class="hint">The areas, regions, or states this net sorts stations into, and logs traffic to — e.g. EAN, R5, R9, R10, WAN for an Area net, or one group per state for a single-region net. Each station is placed automatically from its roster State (checked first), then Region, then Area. "Matches" can list several values separated by commas (e.g. IA, NE, MO). With no groups, Main uses a single QTC and Destination field instead.</p>
+      <div class="group-list" id="groupList"></div>
+      <div class="row">
+        <button class="secondary" id="addGroupBtn">+ Add Group</button>
+        <button class="secondary" id="presetCentralBtn">Use NTS Central Area preset</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Net Info</h3>
+      <div class="row">
+        <div class="field"><label>Net Name</label><input type="text" id="setNetName"></div>
+        <div class="field mono-field"><label>NCS Callsign</label><input type="text" id="setNcs"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Net Manager</label><input type="text" id="setNetMgr"></div>
+        <div class="field"><label>Net Mgr Email</label><input type="email" id="setNetMgrEmail" autocomplete="off"></div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Preamble Script</h3>
+      <div class="field"><textarea id="setPreamble" rows="6"></textarea></div>
+    </div>
+
+    <div class="settings-section">
+    <h3>Roster</h3>
     <p class="hint">Callsign is split automatically into prefix / suffix for sorting (e.g. W1AW → prefix "W1", suffix "AW"; AE5EI → prefix "AE5", suffix "EI"). The roster list is always kept sorted by suffix.</p>
     <p class="hint">Import a CSV to add or update stations in bulk. Recognized columns (any order, case-insensitive): Callsign, Name, Last Name, Spouse, City, Location, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No), Area, Region, Phone, Email, Street, ZIP, Notes. A First column fills Name when there's no Name column. Rows matching an existing callsign update that entry (a blank cell leaves that field as it was); other rows are added as new stations. Birthday and Anniversary accept partial info — a bare year (e.g. "1984") or just month/day (e.g. "1/4") — as well as full dates; a value with only a year won't trigger the Birthdays &amp; Anniversaries tab since the day isn't known.</p>
     <div class="row" style="align-items:center;">
@@ -973,6 +984,7 @@ window.hamnetSplashDone = (function(){
     </div>
     <div class="roster-list" id="rosterList"></div>
     <button class="secondary" id="addRosterRow" style="margin-top:10px;">+ Add Station</button>
+    </div>
   </section>
 
 </main>
@@ -1009,6 +1021,14 @@ window.hamnetSplashDone = (function(){
 </div>
 
 <!-- Second confirmation before deleting a net -->
+<div class="modal-overlay" id="whatsNewModal">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="whatsNewTitle">
+    <h3 id="whatsNewTitle"></h3>
+    <div id="whatsNewBody"></div>
+    <div class="btn-row" style="justify-content:flex-end;"><button class="primary" id="whatsNewClose">Close</button></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="deleteNetModal">
   <div class="modal-box">
     <h3>Delete Net</h3>
@@ -1035,7 +1055,7 @@ function defaultNetData(){
     settings:{
       netName:'Net Name',
       ncs:'',
-      preamble:'CQ NET CQ NET! Customize this preamble in Settings.',
+      preamble:'CQ NET CQ NET! Customize this preamble in Net Setup.',
       theme:'default',
       timeFormat:'12',
       checkinsPaneWidth:220,
@@ -1317,7 +1337,10 @@ function createNet(){
   STORE.nets[id] = defaultNetData();
   STORE.nets[id].settings.netName = 'New Net';
   switchNet(id);
-  showTab('settings');
+  showTab('roster');
+  const name = document.getElementById('setNetName');
+  name.focus();
+  name.select();
 }
 function deleteNet(id){
   const ids = Object.keys(STORE.nets);
@@ -1355,7 +1378,7 @@ function removeNet(id){
   applyCheckinsPaneSize(DATA.settings.checkinsPaneWidth || CHECKINS_BASE_WIDTH);
   applyIdTimerVisibility();
   applyNetTypeUI();
-  renderSettings();
+  showTab(currentTab);
 }
 
 /* ---------- Callsign split / sort ---------- */
@@ -1851,7 +1874,7 @@ function showTab(tab){
   if(tab==='bday') renderBdays();
   if(tab==='traffic') renderTrafficIfEmpty();
   if(tab==='settings') renderSettings();
-  if(tab==='roster') renderRosterTable();
+  if(tab==='roster'){ renderNetSetup(); renderRosterTable(); }
   if(tab==='reports') renderSnapshots();
 }
 document.getElementById('tabNav').addEventListener('click', e=>{
@@ -1864,18 +1887,13 @@ function renderHeader(){
   const sel = document.getElementById('netNameDisplay');
   sel.innerHTML = Object.entries(STORE.nets)
     .map(([id,net]) => `<option value="${escapeHtml(id)}">${escapeHtml(net.settings.netName || '(unnamed net)')}</option>`)
-    .join('') + `<option value="__new__">+ New Net…</option>`;
+    .join('');
   sel.value = STORE.activeNetId;
   document.getElementById('ncsDisplay').textContent = 'NCS: ' + (DATA.settings.ncs || '—');
   weatherSync();
 }
 document.getElementById('netNameDisplay').addEventListener('change', (e)=>{
-  const val = e.target.value;
-  if(val === '__new__'){
-    createNet();
-  } else {
-    switchNet(val);
-  }
+  switchNet(e.target.value);
 });
 
 function formatLocalTime(now){
@@ -2029,7 +2047,7 @@ function renderMain(skipCheckinRevalidate){
   const list = sortedRoster();
   if(list.length === 0){
     document.getElementById('mainContent').innerHTML =
-      '<p class="empty-msg">The roster is empty. Add stations on the Roster tab.</p>';
+      '<p class="empty-msg">The roster is empty. Add stations on the Net Setup tab.</p>';
     return;
   }
   if(DATA.mainCursor === null || DATA.mainCursor === undefined){
@@ -2756,13 +2774,13 @@ function nrFlash(text, bad){
   el.textContent = text;
   el.classList.toggle('bad', !!bad);
 }
-/* Emails the Net Report CSV to the Net Manager (Settings > Net Info), sent by the Rust side
+/* Emails the Net Report CSV to the Net Manager (Net Setup > Net Info), sent by the Rust side
    through the mail server in Settings > Email. */
 document.getElementById('nrSendMgr').addEventListener('click', async ()=>{
   const btn = document.getElementById('nrSendMgr');
   if(!hamnetIsTauri() && !HAMNET_REMOTE){ nrFlash('Sending email is available in the installed app.', true); return; }
   const to = (DATA.settings.netMgrEmail || '').trim();
-  if(!to){ nrFlash('Enter the Net Mgr Email in Settings > Net Info first.', true); return; }
+  if(!to){ nrFlash('Enter the Net Mgr Email in Net Setup > Net Info first.', true); return; }
   const {csv, rep, month, fileName} = netReportCsv();
   if(rep.rows.length === 0){ nrFlash('No net sessions this month, so there is nothing to send.', true); return; }
   const [y, m] = month.split('-').map(Number);
@@ -4124,6 +4142,13 @@ function renderSettings(){
   renderMailSettings();
   renderWeatherSettings();
   renderShareSettings();
+  document.getElementById('setTheme').value = DATA.settings.theme || 'default';
+  document.getElementById('setTimeFormat').value = DATA.settings.timeFormat || '12';
+  document.getElementById('setShowIdTimer').checked = DATA.settings.showIdTimer !== false;
+}
+
+/* Net Setup tab: the open net's profile, type, info and preamble (the roster is drawn by renderRosterTable) */
+function renderNetSetup(){
   const sel = document.getElementById('setActiveNet');
   sel.innerHTML = Object.entries(STORE.nets)
     .map(([id,net]) => `<option value="${escapeHtml(id)}">${escapeHtml(net.settings.netName || '(unnamed net)')}</option>`)
@@ -4134,9 +4159,6 @@ function renderSettings(){
   document.getElementById('setNetMgr').value = DATA.settings.netMgr || '';
   document.getElementById('setNetMgrEmail').value = DATA.settings.netMgrEmail || '';
   document.getElementById('setPreamble').value = DATA.settings.preamble || '';
-  document.getElementById('setTheme').value = DATA.settings.theme || 'default';
-  document.getElementById('setTimeFormat').value = DATA.settings.timeFormat || '12';
-  document.getElementById('setShowIdTimer').checked = DATA.settings.showIdTimer !== false;
   document.getElementById('setNetType').value = DATA.settings.netType || 'rollcall';
   renderGroupList();
 }
@@ -4575,8 +4597,8 @@ document.addEventListener('click', e=>{
    downloads it, checks its signature, and runs the right installer (.exe, .msi, .deb,
    .rpm, or AppImage). The Android app reads GitHub's release list and hands the new APK
    to Android's installer through MainActivity's NetRosterUpdater. */
-const RELEASES_URL = 'https://github.com/scottws70/Net-Roster-Logger/releases';
-let pendingUpdate = null;      // {version, current, notesUrl, install()}
+const RELEASES_API = 'https://api.github.com/repos/scottws70/Net-Roster-Logger/releases';
+let pendingUpdate = null;      // {version, current, body, install()}
 let updateLaterHook = null;    // run when "Later" is pressed (Android: go ahead and connect)
 function compareVersions(a, b){
   const pa = String(a).replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
@@ -4605,8 +4627,7 @@ async function findDesktopUpdate(){
   const up = await window.__TAURI__.updater.check();
   if(!up) return null;
   return {
-    version: up.version, current: up.currentVersion,
-    notesUrl: RELEASES_URL + '/tag/v' + up.version,
+    version: up.version, current: up.currentVersion, body: up.body || '',
     install: async ()=>{
       let total = 0, got = 0;
       updateSay('Downloading…');
@@ -4630,7 +4651,7 @@ async function findAndroidUpdate(){
   const timer = setTimeout(()=> ctl.abort(), 6000);
   let rel;
   try{
-    const r = await fetch('https://api.github.com/repos/scottws70/Net-Roster-Logger/releases/latest',
+    const r = await fetch(RELEASES_API + '/latest',
       {signal: ctl.signal, cache: 'no-store', headers: {Accept: 'application/vnd.github+json'}});
     if(!r.ok) throw new Error('GitHub answered ' + r.status);
     rel = await r.json();
@@ -4640,8 +4661,7 @@ async function findAndroidUpdate(){
   const apk = (rel.assets || []).find(a => /\.apk$/i.test(a.name));
   if(!apk) return null;
   return {
-    version, current,
-    notesUrl: rel.html_url || (RELEASES_URL + '/tag/v' + version),
+    version, current, body: rel.body || '',
     install: ()=> new Promise((resolve, reject)=>{
       window.hamnetApkProgress = (state, text) => {
         if(state === 'error') reject(new Error(text));
@@ -4692,10 +4712,53 @@ document.getElementById('updateInstallBtn').addEventListener('click', async ()=>
     setUpdateButtonsBusy(false);
   }
 });
-document.getElementById('updateNotesBtn').addEventListener('click', ()=>{
+/* "What's New" shows the release's notes inside the app: everything above the guide to the
+   installers, without the line about the app offering the update (it just did). */
+function whatsNewHtml(body){
+  const inline = s => escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+  let html = '', inList = false;
+  for(const raw of String(body || '').replace(/\r/g, '').split('\n')){
+    const t = raw.trim();
+    if(/^#{1,6}\s*(RPM|DEB|AppImage|Setup\.exe|APK)\b/i.test(t)) break;
+    if(/offers this update itself/i.test(t)) continue;
+    const li = /^[-*]\s+(.*)$/.exec(t);
+    if(li){ if(!inList){ html += '<ul>'; inList = true; } html += '<li>' + inline(li[1]) + '</li>'; continue; }
+    if(inList){ html += '</ul>'; inList = false; }
+    if(!t) continue;
+    const h = /^#{1,6}\s+(.*)$/.exec(t);
+    html += h ? '<h4>' + inline(h[1]) + '</h4>' : '<p>' + inline(t) + '</p>';
+  }
+  return html + (inList ? '</ul>' : '');
+}
+/* The notes as they are on GitHub right now (they can be corrected after a release),
+   else as they were when the update was found. */
+async function fetchReleaseNotes(version, fallback){
+  const ctl = new AbortController();
+  const timer = setTimeout(()=> ctl.abort(), 6000);
+  try{
+    const r = await fetch(RELEASES_API + '/tags/v' + encodeURIComponent(version),
+      {signal: ctl.signal, cache: 'no-store', headers: {Accept: 'application/vnd.github+json'}});
+    if(r.ok){ const body = (await r.json()).body; if(body && body.trim()) return body; }
+  }catch(e){ /* offline, or GitHub can't be reached: use what came with the update */ }
+  finally{ clearTimeout(timer); }
+  return fallback || '';
+}
+function closeWhatsNew(){ document.getElementById('whatsNewModal').classList.remove('show'); }
+document.getElementById('updateNotesBtn').addEventListener('click', async ()=>{
   if(!pendingUpdate) return;
-  if(window.__TAURI__ && window.__TAURI__.opener) window.__TAURI__.opener.openUrl(pendingUpdate.notesUrl).catch(err => console.error(err));
-  else window.open(pendingUpdate.notesUrl, '_blank', 'noopener');
+  const u = pendingUpdate;
+  const bodyEl = document.getElementById('whatsNewBody');
+  document.getElementById('whatsNewTitle').textContent = "What's new in version " + u.version;
+  bodyEl.innerHTML = '<p style="color:var(--text-dim);">Loading…</p>';
+  document.getElementById('whatsNewModal').classList.add('show');
+  document.getElementById('whatsNewClose').focus();
+  const html = whatsNewHtml(await fetchReleaseNotes(u.version, u.body));
+  bodyEl.innerHTML = html || '<p style="color:var(--text-dim);">No notes were written for this version.</p>';
+});
+document.getElementById('whatsNewClose').addEventListener('click', closeWhatsNew);
+document.getElementById('whatsNewModal').addEventListener('click', e => { if(e.target.id === 'whatsNewModal') closeWhatsNew(); });
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && document.getElementById('whatsNewModal').classList.contains('show')){ e.preventDefault(); closeWhatsNew(); }
 });
 document.getElementById('updateLaterBtn').addEventListener('click', ()=>{
   document.getElementById('updateBar').hidden = true;

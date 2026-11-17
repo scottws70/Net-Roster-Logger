@@ -4,11 +4,11 @@
   <li>Download your preferred package.</li>
   <li>Install (Or Run, in the case of the AppImage)</li>
   <li>Android (phones and tablets, including Amazon Fire): download the .apk on the device, open it, and allow installing from that app when asked. The Android app works on your main computer's nets through [Sharing](#sharing); it doesn't keep nets of its own.</li>
-  <li>Go to Settings, set up your preferences and populate/import your roster.</li>
+  <li>Go to Net Setup to set up your net and populate/import your roster, then Settings for your preferences.</li>
 </ul>
 
 <h3>Updates</h3>
-<p>Starting with version 1.41.0, the app checks for a newer version each time it starts. When there is one, a bar at the top says so: press <b>Install Update</b> and the app downloads it, installs it, and restarts. <b>What's New</b> opens the release notes, and <b>Later</b> puts it off until the next start. The update is checked against the project's signing key before it's installed, so only genuine releases are accepted.</p>
+<p>Starting with version 1.41.0, the app checks for a newer version each time it starts. When there is one, a bar at the top says so: press <b>Install Update</b> and the app downloads it, installs it, and restarts. <b>What's New</b> shows what changed in that version, right in the app, and <b>Later</b> puts it off until the next start. The update is checked against the project's signing key before it's installed, so only genuine releases are accepted.</p>
 <ul>
   <li>Windows shows its installer's progress window while it works (the .msi version also asks permission to make changes).</li>
   <li>Linux .deb and .rpm installs ask for your password, as any package install does. The AppImage updates itself in place.</li>
@@ -29,17 +29,17 @@ Net Roster Logger is a self-contained app for a ham radio net control station to
 
 It runs in a single window, with no internet connection required. Roster, check-in history, and settings are all stored locally.
 
-The app can run more than one net, each with its own Roster and history and other settings. (see [Settings](#settings) → Net Profile).
+The app can run more than one net, each with its own Roster and history and other settings. (see [Net Setup](#net-setup-tab) → Net Profile).
 
 Each net can be set up as a **Roll Call Net** (the default, described throughout this manual) or a **Traffic Net**, which simplifies the screens for formal traffic handling. See [Traffic Net Mode](#traffic-net-mode).
 
 ## Quick Start:
 
 1. Open the app.
-2. Go to **Settings** and fill in:
+2. Go to **Net Setup** and fill in:
    - **Net Name** and **NCS Callsign**, under Net Info.
    - The **Preamble** script read at the start of the net.
-3. Go to the **Roster** tab and add stations one at a time with **+ Add Station**, or bring in a list at once with **Import Roster CSV** (see [Roster Tab](#roster-tab)).
+3. Further down **Net Setup**, under Roster, add stations one at a time with **+ Add Station**, or bring in a list at once with **Import Roster CSV** (see [Roster](#roster)).
 4. Go to **Main** to start roll call. See [Main Tab (Roll Call)](#main-tab-roll-call).
 
 Nothing here needs to be redone before every net — the Roster, Preamble, and Net Info are saved and stay in place until you change them.
@@ -49,7 +49,7 @@ Nothing here needs to be redone before every net — the Roster, Preamble, and N
 
 The header stays fixed at the top of the screen while everything below it scrolls.
 
-- **Net Name** (top left) is a dropdown — click it to switch between nets, or choose **+ New Net…** to create one. See [Settings](#settings) → Net Profile.
+- **Net Name** (top left) is a dropdown — click it to switch between nets. New nets are created on the [Net Setup](#net-setup-tab) tab.
 - **NCS:** shows the configured NCS callsign.
 - **Local Time** and **UTC Time** each show today's date above the current time, updated every second. Local time can be shown as 12- or 24-hour (Settings → Display); UTC is always 24-hour.
 - **ID Timer** counts down from 10 minutes. **Start** begins the countdown; **Stop** stops it and resets it to 10:00. At zero, a beep sounds and a "Time to ID" pop-up appears, reminding you to identify and check for waiting traffic — click **OK** to restart the countdown. The whole ID Timer box can be hidden if you don't want it (Settings → Display).
@@ -58,7 +58,7 @@ The header stays fixed at the top of the screen while everything below it scroll
 
 ## Preamble Tab
 
-Displays the script you read to open the net, exactly as typed into Settings → Preamble Script. It's read-only on this tab — edit the text in Settings.
+Displays the script you read to open the net, exactly as typed into Net Setup → Preamble Script. It's read-only on this tab — edit the text in Net Setup.
 
 ## Birthdays & Anniversaries Tab
 
@@ -89,7 +89,7 @@ For stations that check in before or outside the normal roll call. At the top is
 
 ## Main Tab (Roll Call)
 
-Main shows one station at a time from the Roster, sorted by callsign suffix (the letters after the number — W1AW sorts under "AW"). The top line of the card reads the way you'd call the station, in large type: Callsign, Name, [Location](#roster-tab), and State — for example **WD0DMO Henry Holyrood KS**. Below that are Name, Last Name, and Spouse; then Birthday, Anniversary, and Last Check-in; then a Notes field and an Inactive checkbox. The station's [QRZ photo](#qrz-photos-names-addresses-and-email) sits at the top right; a station without one shows an empty frame there, so the text is always in the same place from card to card.
+Main shows one station at a time from the Roster, sorted by callsign suffix (the letters after the number — W1AW sorts under "AW"). The top line of the card reads the way you'd call the station, in large type: Callsign, Name, [Location](#roster), and State — for example **WD0DMO Henry Holyrood KS**. Below that are Name, Last Name, and Spouse; then Birthday, Anniversary, and Last Check-in; then a Notes field and an Inactive checkbox. The station's [QRZ photo](#qrz-photos-names-addresses-and-email) sits at the top right; a station without one shows an empty frame there, so the text is always in the same place from card to card.
 
 **Keyboard shortcuts** (These work as soon as you're on the Main tab, as long as you haven't clicked into the Notes field). They're also listed at the bottom of the card, and each one can be clicked instead of pressing the key:
 
@@ -139,13 +139,13 @@ Drag the panel's left edge to resize it; the text scales up or down with the wid
 - **Backup This Net** / **Restore This Net** — see [Backup & Restore and Data Safety](#backup-restore-and-data-safety).
 - **Automatic Snapshots** — the app's own daily copies of the net, each with a **Restore** button, and **Open Data Folder**. Installed app on a computer only. See [Automatic Snapshots](#automatic-snapshots).
 
-## Settings Tab
+## Net Setup Tab
 
-The app's version number is shown at the top right, across from the Settings heading, with a **Check for Updates** button beside it (see [Updates](#updates)).
+Between Reports and Settings. Everything that belongs to one net is here: which net is open, its type, its details, its preamble, and its Roster.
 
 ### Net Profile
 
-Switch, create, or delete nets. Each net has its own Roster, check-in history, and settings — useful for running more than one net (e.g. a daily net and a weekly one, or a Morning net and Evening net, etc) from the same app. **+ New Net** creates a blank one; **Delete This Net** removes it and its data permanently, after asking twice — the second time, "Are you SURE you want to delete [Net Name]?", with No as the default (you can't delete your only net). The same switcher is also available as the Net Name dropdown in the header.
+Switch, create, or delete nets. Each net has its own Roster, check-in history, and settings — useful for running more than one net (e.g. a daily net and a weekly one, or a Morning net and Evening net, etc) from the same app. **+ New Net** creates a blank one and puts you in its Net Name, ready to type; **Delete This Net** removes it and its data permanently, after asking twice — the second time, "Are you SURE you want to delete [Net Name]?", with No as the default (you can't delete your only net). The Net Name dropdown in the header switches nets too. Whichever you use, the Net Setup tab shows that net's Roster right away. New nets are made only here, not from the header.
 
 ### Net Type
 
@@ -158,6 +158,35 @@ Net Name and NCS Callsign, shown in the header, plus the **Net Manager** and **N
 ### Preamble Script
 
 The text shown on the [Preamble](#preamble) tab.
+
+### Roster
+
+Below the net's details. Each net has its own Roster; it's shown on both Roll Call and Traffic nets.
+
+Each station is shown as a card: Callsign, Name, Last Name, Spouse, City, Location, State on the first line; Birthday, Anniversary, Last Check-in, a **QRZ Page** link that opens the station's page on QRZ.com, and an Inactive checkbox on the second; and the station's **Notes** (the same note shown on the Main card) on the last. The counts at the top read `| Active: 38 | Inactive: 4 | Total: 42 |`. **+ Add Station** adds a blank one. Callsign fields force uppercase as you type, and a slashed zero (`Ø`, as many logs write it) is turned into a real `0` — in the Roster, in every check-in box, and in imported CSVs — so callsigns sort by suffix and look up correctly on QRZ.
+
+**Location** is how the net refers to where a station is — "East Campus, Lincoln", "N of McCook", "NE City" — and it's what the Main card shows. It started out as each station's City (or, for a station whose city a QRZ lookup had replaced, the city it was listed under before), and new stations start with the City you type. Edit it freely: QRZ lookups never change it. If it's left blank, the City is shown instead.
+
+A third line holds Area, Region, Phone, Email, Street, and ZIP. Area and Region are what a [Traffic Net](#traffic-net-mode) uses to place each station in its group (e.g. Area `Eastern`, or Region `5`).
+
+**Import Roster CSV** adds or updates stations in bulk. Recognized columns, in any order, case-insensitive: Callsign (or Call Sign), Name, Last Name (or Last, Surname), Spouse, City, Location, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No), Area, Region, Phone, Email, Street (or Address), ZIP, Notes. A **First** column fills Name when there's no Name column. Spreadsheet leftovers are cleaned up on the way in: a Region of `5.0` becomes `5`, and a ZIP that lost its leading zero (`6484`) gets it back (`06484`). A row matching an existing callsign updates it (a blank cell leaves that field as it was); other rows are added as new stations. Birthday and Anniversary accept the same flexible formats described under [Birthdays & Anniversaries](#birthdays-anniversaries).
+
+**Export Roster CSV**, next to Import, saves the current Roster with every field above, in the same format Import accepts, so it round-trips cleanly.
+
+#### QRZ Photos, Names, Addresses, and Email
+
+With a [QRZ login](#qrzcom-login) saved (installed app only), the app can look stations up on QRZ.com:
+
+- **Get from QRZ** on a station's card looks that one station up. It downloads a fresh copy of the station's QRZ photo and shows it on the card and on the Main roll-call card, and fills in **Name**, **Last Name**, **Email**, and the address where they're blank. Names and email you've typed are never overwritten. QRZ's nickname is used for Name when the station has one, middle initials are dropped, and all-caps license names and addresses are tidied up (`HIRAM P` → `Hiram`, `RR 1 BOX 5` → `RR 1 Box 5`, `MCCOOK` → `McCook`).
+- **Addresses:** a station with **no Street** on file gets QRZ's whole mailing address (Street, City, State, ZIP). The City you had typed — often an informal one like "N of McCook" or "NE City" — stays in the station's **Location**, so the Main card still reads the way the net knows them. If the State you had was different, it's kept in the station's [Notes](#main-tab-roll-call) as `Listed as: N of McCook, NE`. Spelling differences in spacing or punctuation don't count ("Springhill" and "Spring Hill" are the same). A station that already has a Street keeps its address; only its blank parts are filled, and only when its street and city match QRZ's.
+- **Fetch Missing from QRZ** looks up every station that hasn't been looked up yet (stations looked up by an earlier version of the app that filled in fewer fields count as not yet) and is missing a photo, a name, an email, or part of its address, one at a time with a short pause between, so QRZ isn't flooded. It shows its progress and a summary at the end; click **Stop** to end it early. It reuses photos already saved rather than downloading them again. A station QRZ has no photo for isn't asked about again; use **Get from QRZ** on its card to retry. Each net has its own Roster, so run it once in each net.
+- **New stations are looked up automatically:** when you choose **Add to roster and check in** from Early Check-ins, the Out of Sequence box, or End of the List, or type a callsign into a station card.
+
+Photos are downloaded once and saved on this computer, so they show during nets with no internet connection. They aren't included in Backups or roster CSV exports; after restoring a backup on another computer, Fetch Missing from QRZ downloads them again.
+
+## Settings Tab
+
+The app's version number is shown at the top right, across from the Settings heading, with a **Check for Updates** button beside it (see [Updates](#updates)).
 
 ### Display
 
@@ -235,38 +264,13 @@ Enter the pairing code once; that device then goes straight in from then on.
 - **New Code** makes a new pairing code; every device will need to enter it again. Use it if someone you don't want on your nets has the code. Five wrong codes in a minute from one device lock that device out for 5 minutes; other devices aren't affected.
 - If two people change things on two devices at the same moment, the later save wins.
 
-## Roster Tab
-
-The last tab, right after Settings. Each net has its own Roster; it's shown on both Roll Call and Traffic nets.
-
-Each station is shown as a card: Callsign, Name, Last Name, Spouse, City, Location, State on the first line; Birthday, Anniversary, Last Check-in, a **QRZ Page** link that opens the station's page on QRZ.com, and an Inactive checkbox on the second; and the station's **Notes** (the same note shown on the Main card) on the last. The counts at the top read `| Active: 38 | Inactive: 4 | Total: 42 |`. **+ Add Station** adds a blank one. Callsign fields force uppercase as you type, and a slashed zero (`Ø`, as many logs write it) is turned into a real `0` — in the Roster, in every check-in box, and in imported CSVs — so callsigns sort by suffix and look up correctly on QRZ.
-
-**Location** is how the net refers to where a station is — "East Campus, Lincoln", "N of McCook", "NE City" — and it's what the Main card shows. It started out as each station's City (or, for a station whose city a QRZ lookup had replaced, the city it was listed under before), and new stations start with the City you type. Edit it freely: QRZ lookups never change it. If it's left blank, the City is shown instead.
-
-A third line holds Area, Region, Phone, Email, Street, and ZIP. Area and Region are what a [Traffic Net](#traffic-net-mode) uses to place each station in its group (e.g. Area `Eastern`, or Region `5`).
-
-**Import Roster CSV** adds or updates stations in bulk. Recognized columns, in any order, case-insensitive: Callsign (or Call Sign), Name, Last Name (or Last, Surname), Spouse, City, Location, State, URL, Birthday, Anniversary, Last Check-in, Inactive (Yes/No), Area, Region, Phone, Email, Street (or Address), ZIP, Notes. A **First** column fills Name when there's no Name column. Spreadsheet leftovers are cleaned up on the way in: a Region of `5.0` becomes `5`, and a ZIP that lost its leading zero (`6484`) gets it back (`06484`). A row matching an existing callsign updates it (a blank cell leaves that field as it was); other rows are added as new stations. Birthday and Anniversary accept the same flexible formats described under [Birthdays & Anniversaries](#birthdays-anniversaries).
-
-**Export Roster CSV**, next to Import, saves the current Roster with every field above, in the same format Import accepts, so it round-trips cleanly.
-
-### QRZ Photos, Names, Addresses, and Email
-
-With a [QRZ login](#qrzcom-login) saved (installed app only), the app can look stations up on QRZ.com:
-
-- **Get from QRZ** on a station's card looks that one station up. It downloads a fresh copy of the station's QRZ photo and shows it on the card and on the Main roll-call card, and fills in **Name**, **Last Name**, **Email**, and the address where they're blank. Names and email you've typed are never overwritten. QRZ's nickname is used for Name when the station has one, middle initials are dropped, and all-caps license names and addresses are tidied up (`HIRAM P` → `Hiram`, `RR 1 BOX 5` → `RR 1 Box 5`, `MCCOOK` → `McCook`).
-- **Addresses:** a station with **no Street** on file gets QRZ's whole mailing address (Street, City, State, ZIP). The City you had typed — often an informal one like "N of McCook" or "NE City" — stays in the station's **Location**, so the Main card still reads the way the net knows them. If the State you had was different, it's kept in the station's [Notes](#main-tab-roll-call) as `Listed as: N of McCook, NE`. Spelling differences in spacing or punctuation don't count ("Springhill" and "Spring Hill" are the same). A station that already has a Street keeps its address; only its blank parts are filled, and only when its street and city match QRZ's.
-- **Fetch Missing from QRZ** looks up every station that hasn't been looked up yet (stations looked up by an earlier version of the app that filled in fewer fields count as not yet) and is missing a photo, a name, an email, or part of its address, one at a time with a short pause between, so QRZ isn't flooded. It shows its progress and a summary at the end; click **Stop** to end it early. It reuses photos already saved rather than downloading them again. A station QRZ has no photo for isn't asked about again; use **Get from QRZ** on its card to retry. Each net has its own Roster, so run it once in each net.
-- **New stations are looked up automatically:** when you choose **Add to roster and check in** from Early Check-ins, the Out of Sequence box, or End of the List, or type a callsign into a station card.
-
-Photos are downloaded once and saved on this computer, so they show during nets with no internet connection. They aren't included in Backups or roster CSV exports; after restoring a backup on another computer, Fetch Missing from QRZ downloads them again.
-
 ## Traffic Net Mode
 
-For nets whose purpose is passing formal traffic rather than calling a roster. Turn it on in Settings → Net Type → **Traffic Net**; it applies only to that net, so a Roll Call net and a Traffic net can live side by side.
+For nets whose purpose is passing formal traffic rather than calling a roster. Turn it on in Net Setup → Net Type → **Traffic Net**; it applies only to that net, so a Roll Call net and a Traffic net can live side by side.
 
 **What changes:**
 
-- **Tabs:** only **Preamble**, **Main**, **Reports**, and **Settings** are shown. Birthdays & Anniversaries, Traffic, End of the List, and the roll-call Main tab are hidden.
+- **Tabs:** only **Preamble**, **Main**, **Reports**, **Net Setup**, and **Settings** are shown. Birthdays & Anniversaries, Traffic, End of the List, and the roll-call Main tab are hidden.
 - **Main** is the Early Check-ins screen, renamed, with the fields **Callsign**, **Name**, and **State** (City is hidden), plus the traffic fields described below. Suffix matching, name lookup, and the “Not on the Roster” prompt work the same as in [Early Check-ins](#early-check-ins). Press **Enter** from any field to check the station in.
 - **Reports → Today** adds a one-line net report you can copy and send, in the form:
 
@@ -288,7 +292,7 @@ These carry into the [Net Report](#reports-tab), one row per session.
 
 ### Traffic Groups
 
-Settings → **Traffic Groups** is the list of areas, regions, or states this net sorts stations into and logs traffic to — for an NTS Area net, something like EAN, R5, R9, R10, WAN; for a net that covers a single region, one group per state (or per few states). Each group has:
+Net Setup → **Traffic Groups** (shown under Net Type when the net is a Traffic Net) is the list of areas, regions, or states this net sorts stations into and logs traffic to — for an NTS Area net, something like EAN, R5, R9, R10, WAN; for a net that covers a single region, one group per state (or per few states). Each group has:
 
 - **Label** — the short name shown on screen and in reports (`EAN`, `R5`).
 - **Type** — **Area**, **Region**, or **State**.
@@ -352,16 +356,16 @@ If you need someone to substitute for you and they are running N8VCL Net Roster 
 
 # Recommended Use:
 
-I recommend first setting your net up in the Settings tab, and once that's done and you're ready to call a net, just work left to right across the tabs. Click Preamble and read, click Birthdays and Anniversaries and call them out. Click Traffic and ask if there are any stations with Traffic for the net and record it here. Click Early Check-ins and ask for those folks who have to get in-and-out. Click Main and go through the Roll Call. Etc. It was designed to work in that order. Hopefully it's a logical workflow to you.
+I recommend first setting your net up in the Net Setup tab and your preferences in Settings, and once that's done and you're ready to call a net, just work left to right across the tabs. Click Preamble and read, click Birthdays and Anniversaries and call them out. Click Traffic and ask if there are any stations with Traffic for the net and record it here. Click Early Check-ins and ask for those folks who have to get in-and-out. Click Main and go through the Roll Call. Etc. It was designed to work in that order. Hopefully it's a logical workflow to you.
 
 ## Troubleshooting
 
-**A station I expect to see on Main isn't showing up.** Check whether it's marked Inactive in the Roster tab — inactive stations are hidden from roll call until they check in again from any tab.  Or perhaps they checked in early.
+**A station I expect to see on Main isn't showing up.** Check whether it's marked Inactive in the Roster on the Net Setup tab — inactive stations are hidden from roll call until they check in again from any tab.  Or perhaps they checked in early.
 
 **“Matches multiple callsigns” message in Early Check-ins or End of the List.** The suffix you typed matches more than one station. Type the full callsign instead.
 
-**A station shows up as Unassigned on the Traffic Board.** Its Roster Area/Region doesn't match any Traffic Group. Fill in its Area or Region in the Roster tab, or check the group's "Matches roster" value.
+**A station shows up as Unassigned on the Traffic Board.** Its Roster Area/Region doesn't match any Traffic Group. Fill in its Area or Region in the Roster on the Net Setup tab, or check the group's "Matches roster" value.
 
-**Some tabs are missing.** The net is probably set to Traffic Net — see Settings → Net Type and [Traffic Net Mode](#traffic-net-mode).
+**Some tabs are missing.** The net is probably set to Traffic Net — see Net Setup → Net Type and [Traffic Net Mode](#traffic-net-mode).
 
 **A CSV import didn't pick up a Birthday or Anniversary correctly.** Check the format against [Birthdays & Anniversaries](#birthdays-anniversaries) — a bare year with no day (`1984`) is stored as year-only on purpose, so it won't show as a match.
