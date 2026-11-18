@@ -80,6 +80,9 @@ Fill in a row, then press **Enter** or **Tab** out of it to open a new blank row
 
 For stations that check in before or outside the normal roll call. At the top is the call to read on the air: **"Any Mobiles, Portables, or Low Power stations?"** Just type the **Callsign** and press **Enter**; the name and city come from the Roster, or from QRZ for a new station.
 
+- **Don't have the callsign?** Type part of a **Name** (first or last, e.g. `mark` or `mark sm`) or a **City / Location** (`lincoln`, `mccook`), or both to narrow it down. A list of matching Roster stations drops down as you type, showing callsign, name, Location and State; stations already checked in today are at the bottom, marked **✓ checked in**. Click one, or use ↓ ↑ and **Enter**, to check it in. **Enter** with no station highlighted checks in the only match; with more than one, it asks you to pick. **Esc** closes the list.
+- For a new station, a Name and City / Location typed alongside its callsign go onto the Roster with it; QRZ fills in only what you left blank.
+
 - **Callsign** accepts the full callsign (`W1AW`) or just the suffix (`AW`), as long as that suffix matches exactly one station on the Roster. If it matches more than one, you'll be asked to type the full callsign instead.
 - A **known** callsign is checked in immediately.
 - An **unknown** callsign opens the **Not on the Roster** prompt, showing the station as **CALL : First name from City**. With a [QRZ login](#qrzcom-login) saved, the name and city are looked up on QRZ while the prompt is open (it says so if QRZ doesn't know the callsign, a good hint of a typo). Choose:
@@ -111,13 +114,13 @@ When you reach the end of the Roster, Main switches automatically to **End of th
 
 ### Out of Sequence, Early, or Late
 
-Below the station card is a small check-in box for stations that break in during roll call — a "CONTACT," a late arrival, or "check in my wife too" — so you can log them without leaving the Main tab. It works exactly like [Early Check-ins](#early-check-ins): the same Callsign field, suffix matching, and “Not on the Roster” prompt.
+Below the station card is a small check-in box for stations that break in during roll call — a "CONTACT," a late arrival, or "check in my wife too" — so you can log them without leaving the Main tab. It works exactly like [Early Check-ins](#early-check-ins): the same Callsign, Name, and City / Location fields, suffix matching, suggestions as you type a name or place, and “Not on the Roster” prompt.
 
 Anyone checked in this way is skipped automatically when roll call reaches them. While your cursor is in one of these fields, Space and the arrow keys type normally instead of moving the roll call; click anywhere outside the box to go back to using the shortcuts.
 
 ## End of the List Tab
 
-Works exactly like [Early Check-ins](#early-check-ins) — same Callsign field, same suffix matching, same “Not on the Roster” prompt — for catching late, missed, or new stations.
+Works exactly like [Early Check-ins](#early-check-ins) — same Callsign, Name, and City / Location fields, same suffix matching and suggestions, same “Not on the Roster” prompt — for catching late, missed, or new stations.
 
 The app switches here automatically the moment you reach the end of the Roster on the Main tab, whether by Space or →.
 
@@ -271,7 +274,7 @@ For nets whose purpose is passing formal traffic rather than calling a roster. T
 **What changes:**
 
 - **Tabs:** only **Preamble**, **Main**, **Reports**, **Net Setup**, and **Settings** are shown. Birthdays & Anniversaries, Traffic, End of the List, and the roll-call Main tab are hidden.
-- **Main** is the Early Check-ins screen, renamed, with the fields **Callsign**, **Name**, and **State** (City is hidden), plus the traffic fields described below. Suffix matching, name lookup, and the “Not on the Roster” prompt work the same as in [Early Check-ins](#early-check-ins). Press **Enter** from any field to check the station in.
+- **Main** is the Early Check-ins screen, renamed, with the fields **Callsign**, **Name**, and **City / Location**, plus the traffic fields described below. Picking a station from the Name or City / Location suggestions fills in its callsign (and group) and moves on to its traffic. Suffix matching and the “Not on the Roster” prompt work the same as in [Early Check-ins](#early-check-ins). Press **Enter** from any field to check the station in.
 - **Reports → Today** adds a one-line net report you can copy and send, in the form:
 
   `<Net Name> net report for <Mon D> utc <check-ins> <QTC> <callsigns…> <NCS>/NCS`

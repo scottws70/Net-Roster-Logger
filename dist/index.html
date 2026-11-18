@@ -294,6 +294,15 @@
     display:inline-block;margin-left:12px;font-size:13px;color:var(--good);
   }
   .flash.bad{color:var(--bad);}
+  .who-suggest{position:fixed;z-index:250;background:var(--panel);border:1px solid var(--accent);border-radius:6px;
+    box-shadow:0 6px 18px rgba(0,0,0,.45);max-height:320px;overflow-y:auto;min-width:380px;}
+  .who-suggest .ws-item{display:flex;gap:10px;align-items:baseline;padding:7px 10px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--border-soft);}
+  .who-suggest .ws-item:last-child{border-bottom:none;}
+  .who-suggest .ws-item.on,.who-suggest .ws-item:hover{background:var(--panel-alt);}
+  .who-suggest .ws-call{font-family:var(--mono);font-weight:600;color:var(--accent);min-width:72px;}
+  .who-suggest .ws-who{flex:1;color:var(--text);}
+  .who-suggest .ws-in{font-size:12px;color:var(--good);white-space:nowrap;}
+  .who-suggest .ws-more{padding:6px 10px;font-size:12px;color:var(--text-dim);}
   .snap-row{display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--border-soft);font-size:14px;}
   .snap-row span{flex:1;}
 
@@ -564,6 +573,8 @@ window.hamnetSplashDone = (function(){
       <h3 style="font-size:14px;color:var(--accent);margin:0 0 14px;">Out of Sequence, Early, or Late</h3>
       <div class="row">
         <div class="field mono-field"><label>Callsign</label><input type="text" id="oosCallsign" class="callsign-input" autocomplete="off"></div>
+        <div class="field"><label>Name</label><input type="text" id="oosName" autocomplete="off"></div>
+        <div class="field"><label>City / Location</label><input type="text" id="oosCity" autocomplete="off"></div>
       </div>
       <span class="flash" id="oosFlash"></span>
     </div>
@@ -610,9 +621,11 @@ window.hamnetSplashDone = (function(){
       </div>
       <div class="session-stats" id="sessStats"></div>
     </div>
-    <p class="hint">Enter a callsign and press Enter to mark it checked in for today. Callsign accepts the full callsign or just the suffix (e.g. "AW" for W1AW) if it's unique on the roster.</p>
+    <p class="hint">Enter a callsign and press Enter to mark it checked in for today. Callsign accepts the full callsign or just the suffix (e.g. "AW" for W1AW) if it's unique on the roster. Don't have the callsign? Type part of a Name or City / Location and pick the station from the list.</p>
     <div class="row" style="margin-top:16px;">
       <div class="field mono-field"><label>Callsign</label><input type="text" id="earlyCallsign" class="callsign-input" autocomplete="off"></div>
+      <div class="field"><label>Name</label><input type="text" id="earlyName" autocomplete="off"></div>
+      <div class="field"><label>City / Location</label><input type="text" id="earlyCity" autocomplete="off"></div>
       <div class="field" id="earlyGroupField" style="display:none;max-width:130px;"><label>Group</label><select id="earlyGroup"></select></div>
       <div class="field" id="earlyQtcField" style="display:none;max-width:90px;"><label>QTC</label><input type="text" id="earlyQtc" autocomplete="off"></div>
       <div class="field" id="earlyDestField" style="display:none;"><label>Destination</label><input type="text" id="earlyDestination" autocomplete="off"></div>
@@ -632,9 +645,11 @@ window.hamnetSplashDone = (function(){
   <section class="tabpanel panel" id="tab-endlist" style="display:none;">
     <h2 class="tab-title">End of the List</h2>
     <p>That is the end of the roster. Are there any late, missed, or new stations wishing to check in?</p>
-    <p class="hint">Callsign accepts the full callsign or just the suffix (e.g. "AW" for W1AW) if it's unique on the roster.</p>
+    <p class="hint">Callsign accepts the full callsign or just the suffix (e.g. "AW" for W1AW) if it's unique on the roster. Don't have the callsign? Type part of a Name or City / Location and pick the station from the list.</p>
     <div class="row" style="margin-top:16px;">
       <div class="field mono-field"><label>Callsign</label><input type="text" id="eolCallsign" class="callsign-input" autocomplete="off"></div>
+      <div class="field"><label>Name</label><input type="text" id="eolName" autocomplete="off"></div>
+      <div class="field"><label>City / Location</label><input type="text" id="eolCity" autocomplete="off"></div>
     </div>
     <span class="flash" id="eolFlash"></span>
   </section>
@@ -988,6 +1003,8 @@ window.hamnetSplashDone = (function(){
   </section>
 
 </main>
+
+<div class="who-suggest" id="whoSuggest" role="listbox" hidden></div>
 
 <aside class="checkins-pane" id="checkinsPane">
   <div class="checkins-resize-handle" id="checkinsResizeHandle" title="Drag to resize"></div>
@@ -2406,10 +2423,95 @@ document.getElementById('earlyCallsign').addEventListener('blur', (e)=>{
   if(gid) document.getElementById('earlyGroup').value = gid;
 });
 
+/* ---------- Who's calling? Name / City / Location suggestions ---------- */
+/* Roster stations whose Name / Last Name contain every word typed in Name, and whose City or
+   Location contains what's typed in City / Location. Stations not yet checked in today first. */
+function whoMatches(nameText, cityText){
+  const words = (nameText||'').trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const place = (cityText||'').trim().toLowerCase();
+  if(!words.length && !place) return [];
+  const today = new Set(DATA.qni.filter(q => q.date === todayStr()).map(q => normCall(q.callsign)));
+  const found = sortedRoster().filter(r=>{
+    if(!r.callsign) return false;
+    const nm = ((r.name||'') + ' ' + (r.lastName||'')).toLowerCase();
+    if(words.some(w => !nm.includes(w))) return false;
+    if(place && !((r.city||'').toLowerCase().includes(place) || (r.location||'').toLowerCase().includes(place))) return false;
+    return true;
+  });
+  found.forEach(r => r._inToday = today.has(normCall(r.callsign)));
+  const out = found.filter(r => !r._inToday).concat(found.filter(r => r._inToday));
+  found.forEach(r => delete r._inToday);
+  out.inToday = today;
+  return out;
+}
+const WHO_MAX = 8;
+let whoState = null;   // {input, list, pick, on}
+function whoSuggestOwner(){ return whoState && document.activeElement === whoState.input; }
+function hideWhoSuggest(){
+  whoState = null;
+  const box = document.getElementById('whoSuggest');
+  box.hidden = true;
+  box.innerHTML = '';
+}
+function showWhoSuggest(input, list, pick){
+  const box = document.getElementById('whoSuggest');
+  if(!input || !list.length){ hideWhoSuggest(); return; }
+  whoState = {input, list: list.slice(0, WHO_MAX), pick, on: -1};
+  box.innerHTML = whoState.list.map((r,i)=>{
+    const nm = [r.name, r.lastName].filter(Boolean).join(' ');
+    const where = [stationLocation(r), r.state].filter(Boolean).join(', ');
+    const inToday = list.inToday && list.inToday.has(normCall(r.callsign));
+    return `<div class="ws-item" role="option" data-i="${i}"><span class="ws-call">${escapeHtml(r.callsign.toUpperCase())}</span>` +
+      `<span class="ws-who">${escapeHtml(nm)}${where ? ' — ' + escapeHtml(where) : ''}</span>` +
+      (inToday ? '<span class="ws-in">✓ checked in</span>' : '') + '</div>';
+  }).join('') + (list.length > WHO_MAX ? `<div class="ws-more">${list.length - WHO_MAX} more — keep typing to narrow it down</div>` : '');
+  const rc = input.getBoundingClientRect();
+  box.style.left = Math.max(4, Math.min(rc.left, window.innerWidth - Math.max(rc.width, 380) - 4)) + 'px';
+  box.style.top = (rc.bottom + 3) + 'px';
+  box.style.width = Math.min(Math.max(rc.width, 380), window.innerWidth - 8) + 'px';
+  box.style.maxHeight = Math.max(120, window.innerHeight - rc.bottom - 12) + 'px';
+  box.hidden = false;
+}
+function whoHighlight(i){
+  if(!whoState) return;
+  whoState.on = i;
+  document.querySelectorAll('#whoSuggest .ws-item').forEach(el => el.classList.toggle('on', Number(el.dataset.i) === i));
+  const el = document.querySelector(`#whoSuggest .ws-item[data-i="${i}"]`);
+  if(el && el.scrollIntoView) el.scrollIntoView({block:'nearest'});
+}
+/* Arrow keys move through the list, Enter picks the highlighted station, Escape closes it.
+   Returns true when the key was used here. */
+function whoSuggestKey(e){
+  if(!whoState || document.getElementById('whoSuggest').hidden) return false;
+  const n = whoState.list.length;
+  if(e.key === 'ArrowDown'){ e.preventDefault(); whoHighlight((whoState.on + 1) % n); return true; }
+  if(e.key === 'ArrowUp'){ e.preventDefault(); whoHighlight(whoState.on <= 0 ? n - 1 : whoState.on - 1); return true; }
+  if(e.key === 'Escape'){ e.preventDefault(); hideWhoSuggest(); return true; }
+  if(e.key === 'Enter' && whoState.on >= 0){
+    e.preventDefault();
+    const st = whoState;
+    st.pick(st.list[st.on]);
+    return true;
+  }
+  return false;
+}
+// mousedown, so the click lands before the box loses focus and closes
+document.getElementById('whoSuggest').addEventListener('mousedown', e=>{
+  const el = e.target.closest('.ws-item');
+  e.preventDefault();
+  if(!el || !whoState) return;
+  const st = whoState;
+  st.pick(st.list[Number(el.dataset.i)]);
+});
+window.addEventListener('resize', hideWhoSuggest);
+document.addEventListener('scroll', e=>{ if(whoState && !e.target.closest?.('#whoSuggest')) hideWhoSuggest(); }, true);
+
 function makeCheckinForm(prefix, flashId){
   function fields(){
     return {
-      callsign: document.getElementById(prefix+'Callsign')
+      callsign: document.getElementById(prefix+'Callsign'),
+      name: document.getElementById(prefix+'Name'),
+      city: document.getElementById(prefix+'City')
     };
   }
   function isTrafficMain(){
@@ -2417,7 +2519,8 @@ function makeCheckinForm(prefix, flashId){
   }
   function clearFields(){
     const f = fields();
-    f.callsign.value='';
+    f.callsign.value=''; f.name.value=''; f.city.value='';
+    hideWhoSuggest();
     const qtcEl = document.getElementById('earlyQtc');
     const destEl = document.getElementById('earlyDestination');
     if(qtcEl) qtcEl.value = '';
@@ -2432,7 +2535,17 @@ function makeCheckinForm(prefix, flashId){
     const f = fields();
     const flash = document.getElementById(flashId);
     const callRaw = f.callsign.value.trim();
-    if(!callRaw) return;
+    if(!callRaw){
+      // No callsign: check in the one station the Name / City / Location points to
+      if(!f.name.value.trim() && !f.city.value.trim()) return;
+      const found = whoMatches(f.name.value, f.city.value);
+      if(found.length === 1){ choose(found[0]); return; }
+      flash.textContent = found.length
+        ? `That matches ${found.length} stations — pick one from the list, or type the callsign.`
+        : 'No roster match for that Name / City — enter a callsign.';
+      flash.classList.add('bad');
+      return;
+    }
     const resolved = resolveCallsignInput(callRaw);
     if(resolved.status === 'ambiguous'){
       flash.textContent = `"${callRaw.toUpperCase()}" matches ${resolved.candidates.map(c=>c.callsign).join(', ')} — type the full callsign.`;
@@ -2462,7 +2575,7 @@ function makeCheckinForm(prefix, flashId){
     }else{
       pendingNewStation = {
         callsign: call.toUpperCase(),
-        name: '', city: '', state: '',   // filled in from QRZ
+        name: f.name.value.trim(), city: f.city.value.trim(), state: '',   // the rest filled in from QRZ
         qtc: qtcAmount,
         destination: destination,
         extra: extra
@@ -2473,8 +2586,36 @@ function makeCheckinForm(prefix, flashId){
       showNewStationPrompt();
     }
   }
+  /* A station picked from the suggestion list. Roll call: checked in right away.
+     Traffic Net Main: its callsign and group are filled in, ready for its traffic. */
+  function choose(r){
+    const f = fields();
+    hideWhoSuggest();
+    f.callsign.value = r.callsign;
+    if(isTrafficMain()){
+      const gid = usesTrafficMatrix() && groupForStation(r);
+      if(gid) document.getElementById('earlyGroup').value = gid;
+      const next = document.querySelector('#earlyTrafficInputs input') || document.getElementById('earlyQtc');
+      if(next && next.offsetParent) next.focus(); else f.callsign.focus();
+      return;
+    }
+    submit();
+  }
+  function suggest(){
+    const f = fields();
+    if(f.callsign.value.trim()){ hideWhoSuggest(); return; }
+    showWhoSuggest(document.activeElement, whoMatches(f.name.value, f.city.value), choose);
+  }
+  const f0 = fields();
+  [f0.name, f0.city].forEach(inp=>{
+    inp.addEventListener('input', suggest);
+    inp.addEventListener('focus', suggest);
+    inp.addEventListener('blur', ()=> setTimeout(()=>{ if(!whoSuggestOwner()) hideWhoSuggest(); }, 0));
+  });
+  f0.callsign.addEventListener('input', ()=>{ if(f0.callsign.value.trim()) hideWhoSuggest(); });
   Object.values(fields()).forEach(inp=>{
     inp.addEventListener('keydown', e=>{
+      if(inp !== f0.callsign && whoSuggestKey(e)) return;
       if(e.key === 'Enter'){ e.preventDefault(); submit(); }
     });
   });
