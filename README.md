@@ -86,13 +86,13 @@ For stations that check in before or outside the normal roll call. At the top is
 - **Callsign** accepts the full callsign (`W1AW`) or just the suffix (`AW`), as long as that suffix matches exactly one station on the Roster. If it matches more than one, you'll be asked to type the full callsign instead.
 - A **known** callsign is checked in immediately.
 - An **unknown** callsign opens the **Not on the Roster** prompt, showing the station as **CALL : First name from City**. With a [QRZ login](#qrzcom-login) saved, the name and city are looked up on QRZ while the prompt is open (it says so if QRZ doesn't know the callsign, a good hint of a typo). Choose:
-  - **Add to roster and check in** (the default; Enter) — adds the station with QRZ's photo, name, email, and address, as described under [QRZ Photos, Names, Addresses, and Email](#qrz-photos-names-addresses-and-email), and checks it in.
+  - **Add to roster and check in** (the default; Enter) — adds the station with QRZ's photo, name, email, and address, as described under [QRZ Photos, Names, Addresses, and Email](#looking-stations-up-qrz-and-the-fcc), and checks it in.
   - **Just check in for now** — checks it in today without adding it to the Roster.
   - **Re-Enter Callsign** (or Esc) — closes the prompt and keeps what you typed, with the callsign selected so you can fix a typo and press Enter again.
 
 ## Main Tab (Roll Call)
 
-Main shows one station at a time from the Roster, sorted by callsign suffix (the letters after the number — W1AW sorts under "AW"). The top line of the card reads the way you'd call the station, in large type: Callsign, Name, [Location](#roster), and State — for example **WD0DMO Henry Holyrood KS**. Below that are Name, Last Name, and Spouse; then Birthday, Anniversary, and Last Check-in; then a Notes field and an Inactive checkbox. The station's [QRZ photo](#qrz-photos-names-addresses-and-email) sits at the top right; a station without one shows an empty frame there, so the text is always in the same place from card to card.
+Main shows one station at a time from the Roster, sorted by callsign suffix (the letters after the number — W1AW sorts under "AW"). The top line of the card reads the way you'd call the station, in large type: Callsign, Name, [Location](#roster), and State — for example **WD0DMO Henry Holyrood KS**. A station whose license expires within 10 days, or has expired, gets a highlighted banner above that line (see [License Expiration](#license-expiration)). Below that are Name, Last Name, and Spouse; then Birthday, Anniversary, and Last Check-in; then a Notes field and an Inactive checkbox. The station's [QRZ photo](#looking-stations-up-qrz-and-the-fcc) sits at the top right; a station without one shows an empty frame there, so the text is always in the same place from card to card.
 
 **Keyboard shortcuts** (These work as soon as you're on the Main tab, as long as you haven't clicked into the Notes field). They're also listed at the bottom of the card, and each one can be clicked instead of pressing the key:
 
@@ -176,16 +176,24 @@ A third line holds Area, Region, Phone, Email, Street, and ZIP. Area and Region 
 
 **Export Roster CSV**, next to Import, saves the current Roster with every field above, in the same format Import accepts, so it round-trips cleanly.
 
-#### QRZ Photos, Names, Addresses, and Email
+#### Looking Stations Up (QRZ and the FCC)
 
-With a [QRZ login](#qrzcom-login) saved (installed app only), the app can look stations up on QRZ.com:
+In the installed app (and on a tablet connected to it), stations can be looked up for their photo, name, address, email, and license:
 
-- **Get from QRZ** on a station's card looks that one station up. It downloads a fresh copy of the station's QRZ photo and shows it on the card and on the Main roll-call card, and fills in **Name**, **Last Name**, **Email**, and the address where they're blank. Names and email you've typed are never overwritten. QRZ's nickname is used for Name when the station has one, middle initials are dropped, and all-caps license names and addresses are tidied up (`HIRAM P` → `Hiram`, `RR 1 BOX 5` → `RR 1 Box 5`, `MCCOOK` → `McCook`).
+- **With a [QRZ login](#qrzcom-login) saved**, lookups go to QRZ.com.
+- **With no QRZ login, or for a callsign QRZ doesn't know**, they go to the **FCC license database**, through the free HamDB.org lookup (or callook.info when HamDB can't be reached). The FCC has US callsigns only, and gives the license name and mailing address, class, and expiration date: no photo, nickname, or email.
+- When QRZ's answer lacks the license class or expiration date, those come from the FCC too.
+
+- **Look Up** on a station's card looks that one station up. It downloads a fresh copy of the station's QRZ photo and shows it on the card and on the Main roll-call card, and fills in **Name**, **Last Name**, **Email**, and the address where they're blank. Names and email you've typed are never overwritten. QRZ's nickname is used for Name when the station has one, middle initials are dropped, and all-caps license names and addresses are tidied up (`HIRAM P` → `Hiram`, `RR 1 BOX 5` → `RR 1 Box 5`, `MCCOOK` → `McCook`).
 - **Addresses:** a station with **no Street** on file gets QRZ's whole mailing address (Street, City, State, ZIP). The City you had typed — often an informal one like "N of McCook" or "NE City" — stays in the station's **Location**, so the Main card still reads the way the net knows them. If the State you had was different, it's kept in the station's [Notes](#main-tab-roll-call) as `Listed as: N of McCook, NE`. Spelling differences in spacing or punctuation don't count ("Springhill" and "Spring Hill" are the same). A station that already has a Street keeps its address; only its blank parts are filled, and only when its street and city match QRZ's.
-- **Fetch Missing from QRZ** looks up every station that hasn't been looked up yet (stations looked up by an earlier version of the app that filled in fewer fields count as not yet) and is missing a photo, a name, an email, or part of its address, one at a time with a short pause between, so QRZ isn't flooded. It shows its progress and a summary at the end; click **Stop** to end it early. It reuses photos already saved rather than downloading them again. A station QRZ has no photo for isn't asked about again; use **Get from QRZ** on its card to retry. Each net has its own Roster, so run it once in each net.
+- **Fetch Missing** looks up every station that hasn't been looked up yet (stations looked up by an earlier version of the app that filled in fewer fields count as not yet) and is missing a photo, a name, an email, part of its address, or its license expiration date, one at a time with a short pause between, so QRZ isn't flooded. It shows its progress and a summary at the end; click **Stop** to end it early. It reuses photos already saved rather than downloading them again. A station QRZ has no photo for isn't asked about again; use **Look Up** on its card to retry. Stations found in the FCC database because no QRZ login was saved yet are looked up again on QRZ the next time Fetch Missing runs with a login. Each net has its own Roster, so run it once in each net.
 - **New stations are looked up automatically:** when you choose **Add to roster and check in** from Early Check-ins, the Out of Sequence box, or End of the List, or type a callsign into a station card.
 
-Photos are downloaded once and saved on this computer, so they show during nets with no internet connection. They aren't included in Backups or roster CSV exports; after restoring a backup on another computer, Fetch Missing from QRZ downloads them again.
+Photos are downloaded once and saved on this computer, so they show during nets with no internet connection. They aren't included in Backups or roster CSV exports; after restoring a backup on another computer, Fetch Missing downloads them again.
+
+#### License Expiration
+
+Each station's **License** (class and expiration date, e.g. `Extra · exp Jul 11, 2032`) is shown on its Roster card once it has been looked up. A fresh lookup always replaces it, since it isn't something you type. When a license **expires within 10 days**, the Main roll-call card shows a yellow **⚠ License expires in N days** banner above the callsign; once it **has expired**, a red **⚠ License expired [date]** banner. The Roster card's License turns the same color. A station showing either banner is looked up again in the background (at most once a day), so the banner goes away by itself once the license has been renewed.
 
 ## Settings Tab
 
@@ -221,7 +229,7 @@ Choose a folder for Backups and a folder for Roster exports, so they save automa
 
 ### QRZ.com Login
 
-Your QRZ.com username and password, used to look stations up on QRZ for their photos and names (see [QRZ Photos and Names](#qrz-photos-names-addresses-and-email)). Photos need an active QRZ **XML Logbook Data** subscription; a free QRZ account can sign in but gets only limited data back.
+Your QRZ.com username and password, used to look stations up on QRZ for their photos and names (see [Looking Stations Up](#looking-stations-up-qrz-and-the-fcc)). Without a login, lookups use the FCC license database instead. Photos need an active QRZ **XML Logbook Data** subscription; a free QRZ account can sign in but gets only limited data back.
 
 - **Save** stores the login. To change just the username, leave Password blank and the saved password is kept.
 - **Test Login** signs in to QRZ and tells you whether the account's XML subscription is active, and until when.

@@ -294,6 +294,13 @@
     display:inline-block;margin-left:12px;font-size:13px;color:var(--good);
   }
   .flash.bad{color:var(--bad);}
+  .license-alert{display:inline-block;margin:0 0 10px;padding:6px 12px;border-radius:6px;font-weight:700;font-size:15px;}
+  .license-alert.expired{background:var(--bad);color:#fff;}
+  .license-alert.soon{background:var(--accent);color:#1a1305;}
+  .r-license{padding:9px 0;font-size:13px;white-space:nowrap;}
+  .r-license .dim{color:var(--text-dim);}
+  .r-license .lic-expired{color:var(--bad);font-weight:700;}
+  .r-license .lic-soon{color:var(--accent);font-weight:700;}
   .who-suggest{position:fixed;z-index:250;background:var(--panel);border:1px solid var(--accent);border-radius:6px;
     box-shadow:0 6px 18px rgba(0,0,0,.45);max-height:320px;overflow-y:auto;min-width:380px;}
   .who-suggest .ws-item{display:flex;gap:10px;align-items:baseline;padding:7px 10px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--border-soft);}
@@ -830,7 +837,7 @@ window.hamnetSplashDone = (function(){
 
     <div class="settings-section">
       <h3>QRZ.com Login</h3>
-      <p class="hint">Used to look up stations on QRZ.com, such as their photos. Photos need an active QRZ <b>XML Logbook Data</b> subscription. Your login is saved only on this computer, in the app's settings folder; it isn't included in Backups and applies to all nets.</p>
+      <p class="hint">Used to look up stations on QRZ.com, such as their photos. Photos need an active QRZ <b>XML Logbook Data</b> subscription. Without a login, or for a callsign QRZ doesn't know, names, addresses, and license dates come from the FCC license database instead (US callsigns only, no photos or email), through the free HamDB.org or callook.info lookups. Your login is saved only on this computer, in the app's settings folder; it isn't included in Backups and applies to all nets.</p>
       <div class="row" style="align-items:flex-end;">
         <div class="field" style="max-width:220px;"><label>QRZ Username</label><input type="text" id="qrzUser" autocomplete="off" class="callsign-input"></div>
         <div class="field" style="max-width:220px;"><label>QRZ Password</label><input type="password" id="qrzPass" autocomplete="new-password"></div>
@@ -993,7 +1000,7 @@ window.hamnetSplashDone = (function(){
       <span class="flash" id="csvImportFlash"></span>
     </div>
     <div class="row" style="align-items:center;">
-      <button class="secondary qrz-only" id="qrzFetchMissing" style="display:none;">Fetch Missing from QRZ</button>
+      <button class="secondary qrz-only" id="qrzFetchMissing" style="display:none;" title="Look up every station missing a photo, name, address, email, or license date: on QRZ.com when a login is saved, otherwise in the FCC license database">Fetch Missing</button>
       <span id="rosterCounts" style="font-family:var(--mono);font-size:13px;color:var(--text-dim);"></span>
       <span class="flash" id="qrzRosterFlash"></span>
     </div>
@@ -2055,6 +2062,58 @@ function stationLocation(r){
   return (r.location||'').trim() || (r.city||'').trim();
 }
 
+/* ---------- License expiration ---------- */
+const LICENSE_CLASSES = {E:'Extra', A:'Advanced', G:'General', T:'Technician', P:'Tech Plus', N:'Novice'};
+const LICENSE_WARN_DAYS = 10;
+function licenseDate(iso){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+}
+function fmtLicenseDate(iso){
+  const d = licenseDate(iso);
+  return d ? `${MONTH_ABBR[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}` : '';
+}
+/* Days from today to the expiration date: 0 = expires today, negative = already expired */
+function licenseDaysLeft(r){
+  const d = licenseDate(r && r.licenseExpires);
+  if(!d) return null;
+  const t = new Date(); t.setHours(0,0,0,0);
+  return Math.round((d - t) / 86400000);
+}
+function licenseLine(cls, expires){
+  const name = LICENSE_CLASSES[cls] || '';
+  const date = fmtLicenseDate(expires);
+  return [name ? name + ' license' : 'License', date ? 'expires ' + date : ''].filter(Boolean).join(', ');
+}
+/* {level:'expired'|'soon', text} when the license has expired or expires within LICENSE_WARN_DAYS */
+function licenseAlert(r){
+  const n = licenseDaysLeft(r);
+  if(n === null || n > LICENSE_WARN_DAYS) return null;
+  const date = fmtLicenseDate(r.licenseExpires);
+  if(n < 0) return {level:'expired', text:`License expired ${date} (${-n} day${n === -1 ? '' : 's'} ago)`};
+  if(n === 0) return {level:'soon', text:`License expires today (${date})`};
+  return {level:'soon', text:`License expires in ${n} day${n === 1 ? '' : 's'} (${date})`};
+}
+function licenseFieldHtml(r){
+  if(!r.licenseExpires && !r.licenseClass) return '<span class="dim">—</span>';
+  const a = licenseAlert(r);
+  const cls = LICENSE_CLASSES[r.licenseClass] || '';
+  const date = r.licenseExpires ? 'exp ' + fmtLicenseDate(r.licenseExpires) : '';
+  return `<span class="${a ? 'lic-' + a.level : ''}" title="${escapeHtml(a ? a.text : licenseLine(r.licenseClass, r.licenseExpires))}">` +
+    escapeHtml([cls, date].filter(Boolean).join(' · ')) + (a ? ' ⚠' : '') + '</span>';
+}
+function refreshLicenseField(entry, r){
+  const el = entry.querySelector('.r-license');
+  if(el) el.innerHTML = licenseFieldHtml(r);
+}
+/* A station shown as expired or expiring may have renewed since it was looked up:
+   check again, at most once a day, and redraw the card if the date changed. */
+function recheckLicense(r){
+  if(!hasBackend() || r.licenseChecked === todayStr() || !r.callsign) return;
+  r.licenseChecked = todayStr();
+  qrzLookup(r).catch(e => console.warn('License check for ' + r.callsign + ' failed:', e));
+}
+
 function renderMain(skipCheckinRevalidate){
   if(DATA.mainCursorDate !== todayStr()){
     DATA.mainCursor = null;
@@ -2081,8 +2140,10 @@ function renderMain(skipCheckinRevalidate){
     return;
   }
   const r = list[DATA.mainCursor];
+  const lic = licenseAlert(r);
   document.getElementById('mainContent').innerHTML = `
     <div class="station-card"><div class="station-layout"><div>
+      ${lic ? `<div class="license-alert ${lic.level}">⚠ ${escapeHtml(lic.text)}</div>` : ''}
       <div class="station-call">${escapeHtml([r.callsign, r.name, stationLocation(r), r.state].map(v => (v||'').trim()).filter(Boolean).join(' '))}</div>
       <div class="station-grid">
         <div><span class="k">Name</span><span class="v">${escapeHtml(r.name||'—')}</span></div>
@@ -2106,6 +2167,7 @@ function renderMain(skipCheckinRevalidate){
       </div>
     </div><div class="station-photo-slot">${photoImgHtml(r, 'station-photo')}</div></div></div>
   `;
+  if(lic) recheckLicense(r);
   document.querySelectorAll('#mainContent .keyhint button').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       btn.blur();
@@ -2654,16 +2716,18 @@ function showNewStationPrompt(){
   sub.textContent = '';
   document.getElementById('addRosterModal').classList.add('show');
   document.getElementById('addRosterYes').focus();
-  if(!hasBackend() || !QRZ_HAS_LOGIN) return;
-  sub.textContent = 'Looking up on QRZ…';
+  if(!hasBackend()) return;
+  sub.textContent = QRZ_HAS_LOGIN ? 'Looking up on QRZ…' : 'Looking up in the FCC license database…';
   backendInvoke('qrz_lookup', {callsign: pendingNewStation.callsign, refreshPhoto: false}).then(res=>{
     if(token !== newStationToken || !pendingNewStation) return;
     pendingQrz = res;
     msg.textContent = newStationText();
-    sub.textContent = res.status === 'notfound' ? 'Not found on QRZ. Check the callsign for a typo.' : '';
+    sub.textContent = res.status !== 'notfound' ? licenseLine(res.licenseClass, res.expires)
+      : QRZ_HAS_LOGIN ? 'Not found on QRZ or in the FCC license database. Check the callsign for a typo.'
+      : 'Not found in the FCC license database. Check the callsign for a typo (stations outside the US aren\'t in it).';
   }).catch(e=>{
     if(token !== newStationToken) return;
-    sub.textContent = "Couldn't reach QRZ.";
+    sub.textContent = "Couldn't look it up: " + e;
     console.warn('QRZ lookup failed:', e);
   });
 }
@@ -4003,7 +4067,7 @@ function qrzFirstName(res){
   return qrzTitleCase(words.join(' '));
 }
 /* Bump when a lookup starts filling more fields, so Fetch Missing revisits older lookups once. */
-const QRZ_LOOKUP_VERSION = 3;   // 1: photo and names; 2: adds the address; 3: adds email, full address when no street
+const QRZ_LOOKUP_VERSION = 4;   // 1: photo and names; 2: adds the address; 3: adds email, full address when no street; 4: license class and expiration (FCC)
 const QRZ_FIELDS = ['name','lastName','street','city','state','zip','email'];
 /* "Spring Hill" and "SPRINGHILL" are the same city */
 function sameCity(a, b){
@@ -4015,7 +4079,16 @@ function applyQrzResult(r, res){
   const filled = [];
   r.qrzLookedUp = todayStr();
   r.qrzVer = QRZ_LOOKUP_VERSION;
+  r.licenseChecked = todayStr();
+  // FCC answers given only because no QRZ login was saved are redone by Fetch Missing once one is
+  r.lookupSource = res.source === 'fcc' && !QRZ_HAS_LOGIN ? 'fcc-nologin' : (res.source || 'qrz');
   if(res.status === 'saved'){ r.photo = res.file; r.photoVer = Date.now(); }
+  let licenseChanged = false;
+  if(res.status !== 'notfound'){
+    // License data isn't something the NCS types, so a fresh answer always replaces the old one
+    if(res.expires && res.expires !== r.licenseExpires){ r.licenseExpires = res.expires; licenseChanged = true; }
+    if(res.licenseClass && res.licenseClass !== r.licenseClass){ r.licenseClass = res.licenseClass; licenseChanged = true; }
+  }
   if(res.status !== 'notfound'){
     const first = qrzFirstName(res), last = qrzTitleCase(res.lastName);
     if(!(r.name||'').trim() && first){ r.name = first; filled.push('Name'); }
@@ -4052,7 +4125,12 @@ function applyQrzResult(r, res){
   }
   saveData();
   updatePhotoEls(r);
-  if(filled.length){
+  if(licenseChanged){
+    document.querySelectorAll('#rosterList .roster-entry').forEach(entry=>{
+      if(entry.querySelector('.r-callsign').value === r.callsign) refreshLicenseField(entry, r);
+    });
+  }
+  if(filled.length || licenseChanged){
     // Update the visible roster card in place, so a lookup doesn't steal focus from another card
     document.querySelectorAll('#rosterList .roster-entry').forEach(entry=>{
       if(entry.querySelector('.r-callsign').value !== r.callsign) return;
@@ -4064,7 +4142,7 @@ function applyQrzResult(r, res){
     if(currentTab === 'main' && sortedNow[DATA.mainCursor] === r && document.activeElement.id !== 'mainNotes') renderMain(true);
     renderCheckinsList();
   }
-  return {status: res.status, filled};
+  return {status: res.status, filled, source: res.source || 'qrz', licenseChanged};
 }
 /* refreshPhoto: download the photo even if one is already saved (Get from QRZ on a card). */
 async function qrzLookup(r, refreshPhoto){
@@ -4075,18 +4153,22 @@ function describeQrzResult(call, out){
   const f = out.filled;
   const list = f.length > 1 ? f.slice(0,-1).join(', ') + ' and ' + f[f.length-1] : f[0];
   const names = f.length ? ` ${list.charAt(0).toUpperCase() + list.slice(1)} filled in.` : '';
-  if(out.status === 'saved') return `${call}: photo saved.${names}`;
-  if(out.status === 'noimage') return `${call} has no photo on QRZ.${names}`;
-  return `${call} wasn't found on QRZ.`;
+  const r = findRosterByCall(call);
+  const lic = r && r.licenseExpires ? ' ' + licenseLine(r.licenseClass, r.licenseExpires) + '.' : '';
+  if(out.status === 'saved') return `${call}: photo saved.${names}${lic}`;
+  if(out.source === 'fcc' && out.status !== 'notfound')
+    return `${call}: found in the FCC license database${QRZ_HAS_LOGIN ? " (it isn't on QRZ)" : ''}.${names}${lic}`;
+  if(out.status === 'noimage') return `${call} has no photo on QRZ.${names}${lic}`;
+  return QRZ_HAS_LOGIN ? `${call} wasn't found on QRZ or in the FCC license database.` : `${call} isn't in the FCC license database (US callsigns only).`;
 }
 function qrzRosterFlash(text, bad){
   const el = document.getElementById('qrzRosterFlash');
   el.textContent = text;
   el.classList.toggle('bad', !!bad);
 }
-/* For new stations: look them up in the background when a QRZ login is saved. */
+/* For new stations: look them up in the background (QRZ when a login is saved, otherwise the FCC). */
 function autoQrzLookup(call){
-  if(!hasBackend() || !QRZ_HAS_LOGIN || !call) return;
+  if(!hasBackend() || !call) return;
   const r = findRosterByCall(call);
   if(!r) return;
   qrzLookup(r).catch(e => console.warn('QRZ lookup for ' + call + ' failed:', e));
@@ -4098,19 +4180,19 @@ let qrzBatchRunning = false, qrzBatchStop = false;
 document.getElementById('qrzFetchMissing').addEventListener('click', async ()=>{
   const btn = document.getElementById('qrzFetchMissing');
   if(qrzBatchRunning){ qrzBatchStop = true; btn.textContent = 'Stopping…'; return; }
-  if(!QRZ_HAS_LOGIN){ qrzRosterFlash('Save your QRZ login in Settings first.', true); return; }
   let saved;
   try{ saved = new Set(await backendInvoke('qrz_saved_photos')); }
   catch(e){ qrzRosterFlash('Could not read the photos folder: ' + e, true); return; }
   // Also redo stations whose photo file isn't on this computer (e.g. restored from another one's backup)
   const todo = sortedRoster().filter(r => r.callsign && (
     (r.photo && !saved.has(r.photo)) ||
+    (QRZ_HAS_LOGIN && r.lookupSource === 'fcc-nologin') ||   // looked up before a QRZ login was saved
     ((r.qrzVer || (r.qrzLookedUp ? 1 : 0)) < QRZ_LOOKUP_VERSION &&
-      (!r.photo || QRZ_FIELDS.some(k => !(r[k]||'').trim())))));
-  if(!todo.length){ qrzRosterFlash('Every station has already been looked up. Use Get from QRZ on a card to refresh one.'); return; }
+      (!r.photo || !r.licenseExpires || QRZ_FIELDS.some(k => !(r[k]||'').trim())))));
+  if(!todo.length){ qrzRosterFlash('Every station has already been looked up. Use Look Up on a card to refresh one.'); return; }
   qrzBatchRunning = true; qrzBatchStop = false;
   btn.textContent = 'Stop';
-  const tally = {saved:0, noimage:0, notfound:0, names:0};
+  const tally = {saved:0, noimage:0, notfound:0, names:0, fcc:0};
   let error = null, done = 0;
   for(const r of todo){
     if(qrzBatchStop) break;
@@ -4118,15 +4200,17 @@ document.getElementById('qrzFetchMissing').addEventListener('click', async ()=>{
     try{
       const out = await qrzLookup(r);
       tally[out.status]++;
+      if(out.source === 'fcc' && out.status !== 'notfound') tally.fcc++;
       if(out.filled.length) tally.names++;
     }catch(e){ error = String(e); break; }
     done++;
     if(done < todo.length) await new Promise(res => setTimeout(res, 1000));
   }
   qrzBatchRunning = false;
-  btn.textContent = 'Fetch Missing from QRZ';
+  btn.textContent = 'Fetch Missing';
   const summary = `${tally.saved} photo(s) saved, ${tally.names} station(s) got names, addresses, or emails filled in, ` +
-    `${tally.noimage} had no photo, ${tally.notfound} not on QRZ.`;
+    (QRZ_HAS_LOGIN ? `${tally.noimage - tally.fcc} on QRZ had no photo, ${tally.fcc} found only in the FCC database, ${tally.notfound} found in neither.`
+                   : `${tally.noimage} found in the FCC database, ${tally.notfound} not in it.`);
   if(error) qrzRosterFlash(`Stopped after ${done} of ${todo.length}: ${error} So far: ${summary}`, true);
   else if(qrzBatchStop) qrzRosterFlash(`Stopped after ${done} of ${todo.length}. ${summary}`);
   else qrzRosterFlash(`Done, ${done} looked up: ${summary}`);
@@ -4438,6 +4522,7 @@ function rosterEntryHtml(r, idx){
         <div class="roster-field"><label>Anniversary</label><input type="text" class="r-anniversary" placeholder="YYYY-MM-DD, M/D, or YYYY" value="${escapeHtml(toEditableDateString(r.anniversary||''))}"></div>
         <div class="roster-field"><label>Last Check-in</label><input type="date" class="r-lastcheckin" value="${escapeHtml(r.lastCheckin||'')}"></div>
         <div class="roster-field"><label>QRZ</label>${r.callsign ? `<a class="external-link roster-qrz-link" href="${escapeHtml(qrzPageUrl(r))}" target="_blank" rel="noopener">QRZ Page</a>` : ''}</div>
+        <div class="roster-field"><label>License</label><div class="r-license">${licenseFieldHtml(r)}</div></div>
         <div class="roster-field narrow" style="display:flex;flex-direction:column;">
           <label>Inactive</label>
           <input type="checkbox" class="r-inactive" style="width:auto;height:38px;" ${r.inactive?'checked':''}>
@@ -4453,7 +4538,7 @@ function rosterEntryHtml(r, idx){
         <div class="roster-field narrow"><label>ZIP</label><input type="text" class="r-zip" value="${escapeHtml(r.zip||'')}"></div>
         ${hasBackend() ? `<div class="roster-field narrow" style="flex:0 0 auto;">
           <label>QRZ</label>${photoImgHtml(r, 'roster-photo')}
-          <button class="secondary r-qrz" title="Look this station up on QRZ.com: fresh photo, plus name, address, and email where blank">Get from QRZ</button>
+          <button class="secondary r-qrz" title="Look this station up: on QRZ.com when a login is saved (fresh photo), and in the FCC license database when not or when QRZ doesn't know it. Fills name, address, and email where blank, and updates the license class and expiration.">Look Up</button>
         </div>` : ''}
       </div>
       <div class="roster-line">
@@ -4507,7 +4592,7 @@ function renderRosterTable(){
         }
         r.callsign = newCall;
         const callChanged = r.callsign && r.callsign !== oldCall;
-        if(callChanged){ delete r.photo; delete r.qrzLookedUp; delete r.qrzVer; }
+        if(callChanged){ delete r.photo; delete r.qrzLookedUp; delete r.qrzVer; delete r.licenseClass; delete r.licenseExpires; delete r.licenseChecked; delete r.lookupSource; }
         r.name = entry.querySelector('.r-name').value;
         r.lastName = entry.querySelector('.r-lastname').value;
         r.spouse = entry.querySelector('.r-spouse').value;
@@ -4538,7 +4623,7 @@ function renderRosterTable(){
     if(qrzBtn) qrzBtn.addEventListener('click', async ()=>{
       if(!r.callsign) return;
       qrzBtn.disabled = true;
-      qrzRosterFlash(`Looking up ${r.callsign} on QRZ…`);
+      qrzRosterFlash(`Looking up ${r.callsign}…`);
       try{ qrzRosterFlash(describeQrzResult(r.callsign, await qrzLookup(r, true))); }
       catch(e){ qrzRosterFlash(String(e), true); }
       qrzBtn.disabled = false;

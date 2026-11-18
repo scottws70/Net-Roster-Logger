@@ -2,6 +2,7 @@ use std::fs;
 use std::path::Path;
 
 mod mail;
+mod fcc;
 mod qrz;
 mod share;
 mod store;

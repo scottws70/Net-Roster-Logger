@@ -10,6 +10,8 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 
+use crate::fcc;
+
 const QRZ_URL: &str = "https://xmldata.qrz.com/xml/current/";
 const AGENT: &str = concat!("N8VCLNetLogger", env!("CARGO_PKG_VERSION"));
 
@@ -57,6 +59,45 @@ pub struct LookupResult {
     state: Option<String>,
     zip: Option<String>,
     email: Option<String>,
+    /// Where the answer came from: "qrz", or "fcc" when QRZ wasn't used or didn't know the callsign
+    source: String,
+    /// License class letter (E, A, G, T, N, P) and expiration date (YYYY-MM-DD)
+    license_class: Option<String>,
+    expires: Option<String>,
+}
+
+impl LookupResult {
+    fn not_found(source: &str) -> Self {
+        LookupResult {
+            status: "notfound".into(), file: None, first_name: None, last_name: None, nickname: None,
+            street: None, city: None, state: None, zip: None, email: None,
+            source: source.into(), license_class: None, expires: None,
+        }
+    }
+    /// Fills whatever this answer is missing from the FCC's record.
+    fn fill_from(&mut self, f: fcc::FccRecord) {
+        fn fill(slot: &mut Option<String>, v: Option<String>) {
+            if slot.is_none() { *slot = v; }
+        }
+        fill(&mut self.first_name, f.first_name);
+        fill(&mut self.last_name, f.last_name);
+        fill(&mut self.street, f.street);
+        fill(&mut self.city, f.city);
+        fill(&mut self.state, f.state);
+        fill(&mut self.zip, f.zip);
+        fill(&mut self.license_class, f.license_class);
+        fill(&mut self.expires, f.expires);
+    }
+}
+
+/// The FCC's answer on its own (no photo, no email): "noimage" when found.
+fn fcc_only(callsign: &str) -> Result<LookupResult, String> {
+    let mut result = LookupResult::not_found("fcc");
+    if let Some(rec) = fcc::lookup(callsign)? {
+        result.status = "noimage".into();
+        result.fill_from(rec);
+    }
+    Ok(result)
 }
 
 fn credentials_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -182,7 +223,28 @@ fn image_ext(url: &str, content_type: &str) -> &'static str {
     }
 }
 
+/// Looks a station up: on QRZ when a login is saved, otherwise (or when QRZ doesn't know
+/// the callsign) in the FCC data. A QRZ answer without the license class or expiration
+/// date gets them from the FCC too.
 pub(crate) fn lookup_blocking(app: &AppHandle, callsign: &str, refresh_photo: bool) -> Result<LookupResult, String> {
+    let creds = load_credentials(app);
+    if creds.username.is_empty() || creds.password.is_empty() {
+        return fcc_only(callsign);
+    }
+    let mut result = qrz_lookup_blocking(app, callsign, refresh_photo)?;
+    if result.status == "notfound" {
+        return fcc_only(callsign).map_err(|e| format!("{} isn't on QRZ, and {}", callsign, e));
+    }
+    if result.expires.is_none() || result.license_class.is_none() {
+        // Best effort: the QRZ answer stands even if the FCC lookup can't be reached
+        if let Ok(Some(rec)) = fcc::lookup(callsign) {
+            result.fill_from(rec);
+        }
+    }
+    Ok(result)
+}
+
+fn qrz_lookup_blocking(app: &AppHandle, callsign: &str, refresh_photo: bool) -> Result<LookupResult, String> {
     let xml = lookup_xml(app, callsign)?;
     let mut result = LookupResult {
         status: "notfound".into(),
@@ -195,6 +257,9 @@ pub(crate) fn lookup_blocking(app: &AppHandle, callsign: &str, refresh_photo: bo
         state: xml_tag(&xml, "state"),
         zip: xml_tag(&xml, "zip"),
         email: xml_tag(&xml, "email"),
+        source: "qrz".into(),
+        license_class: xml_tag(&xml, "class").and_then(|c| fcc::class_letter(&c)),
+        expires: xml_tag(&xml, "expdate").and_then(|d| fcc::iso_date(&d)),
     };
     if xml_tag(&xml, "Callsign").is_none() {
         let err = xml_tag(&xml, "Error").unwrap_or_default();
