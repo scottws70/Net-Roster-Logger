@@ -2293,6 +2293,25 @@ document.addEventListener('input', (e)=>{
   el.value = upper;
   try{ el.setSelectionRange(start, end); }catch(err){}
 });
+/* WebKit (the Linux app's view) counts the capitalizing above as the page's own edit, so
+   leaving the box or pressing Enter may send no "change" at all: a callsign typed in
+   lower case was never saved. Send it here when the text differs from what the box had
+   when it was entered (or at the last "change"), and no "change" came for it. */
+function callsignChangeBase(el){ return el._ciBase === undefined ? el.defaultValue : el._ciBase; }
+function sendMissedCallsignChange(el){
+  if(!el.classList || !el.classList.contains('callsign-input')) return;
+  if(el.value !== callsignChangeBase(el)) el.dispatchEvent(new Event('change', {bubbles:true}));
+}
+document.addEventListener('focusin', e=>{
+  const el = e.target;
+  if(el.classList && el.classList.contains('callsign-input')) el._ciBase = el.value;
+});
+document.addEventListener('change', e=>{
+  const el = e.target;
+  if(el.classList && el.classList.contains('callsign-input')) el._ciBase = el.value;
+}, true);
+document.addEventListener('focusout', e=> sendMissedCallsignChange(e.target));
+document.addEventListener('keydown', e=>{ if(e.key === 'Enter') sendMissedCallsignChange(e.target); }, true);
 
 function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -4621,7 +4640,9 @@ function renderRosterTable(){
     });
     const qrzBtn = entry.querySelector('.r-qrz');
     if(qrzBtn) qrzBtn.addEventListener('click', async ()=>{
+      sendMissedCallsignChange(entry.querySelector('.r-callsign'));   // a callsign still being typed counts
       if(!r.callsign) return;
+      if(r.callsign === 'NEW1CALL'){ qrzRosterFlash("Type the station's callsign in place of NEW1CALL first.", true); return; }
       qrzBtn.disabled = true;
       qrzRosterFlash(`Looking up ${r.callsign}…`);
       try{ qrzRosterFlash(describeQrzResult(r.callsign, await qrzLookup(r, true))); }
