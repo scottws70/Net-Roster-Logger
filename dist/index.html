@@ -297,7 +297,11 @@
   .license-alert{display:inline-block;margin:0 0 10px;padding:6px 12px;border-radius:6px;font-weight:700;font-size:15px;}
   .license-alert.expired{background:var(--bad);color:#fff;}
   .license-alert.soon{background:var(--accent);color:#1a1305;}
-  .r-license{padding:9px 0;font-size:13px;white-space:nowrap;}
+  /* Same height as the inputs beside it, so its text lines up with theirs; never wider than its own space */
+  .roster-field.license{flex:1.6;min-width:200px;}
+  .roster-field.qrz-page{flex:0 0 auto;min-width:0;}
+  .r-license{height:38px;display:flex;align-items:center;font-size:13px;white-space:nowrap;overflow:hidden;}
+  .r-license>span{overflow:hidden;text-overflow:ellipsis;}
   .r-license .dim{color:var(--text-dim);}
   .r-license .lic-expired{color:var(--bad);font-weight:700;}
   .r-license .lic-soon{color:var(--accent);font-weight:700;}
@@ -361,6 +365,10 @@
   .roster-field.callsign input{font-family:var(--mono);font-weight:600;}
   .roster-field.narrow{flex:0.6;min-width:64px;}
   .roster-entry-del{display:flex;align-items:flex-end;}
+  /* Address and Notes stacked beside the QRZ photo, instead of below it */
+  .roster-line.roster-bottom{flex-wrap:nowrap;align-items:flex-start;}
+  .roster-bottom-fields{flex:1;min-width:0;}
+  .roster-field.roster-photo-field{flex:0 0 auto;min-width:0;}
   .roster-entry-del .del-btn{font-size:17px;padding:8px 10px;}
   /* Traffic Net: per-destination inputs, session box, traffic board, net report */
   .dest-inputs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
@@ -445,7 +453,7 @@
   }
 a.external-link{color:var(--accent);font-weight:600;}
 a.external-link:hover{text-decoration:underline;}
-.roster-qrz-link{display:inline-block;padding:9px 0;}
+.roster-qrz-link{display:inline-flex;align-items:center;height:38px;}
 #updateBar{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:300;max-width:calc(100vw - 32px);
   background:var(--panel, #1b1f27);border:2px solid var(--accent);border-radius:8px;padding:10px 14px;
   box-shadow:0 6px 24px rgba(0,0,0,.45);display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;}
@@ -4540,14 +4548,16 @@ function rosterEntryHtml(r, idx){
         <div class="roster-field"><label>Birthday</label><input type="text" class="r-birthday" placeholder="YYYY-MM-DD, M/D, or YYYY" value="${escapeHtml(toEditableDateString(r.birthday||''))}"></div>
         <div class="roster-field"><label>Anniversary</label><input type="text" class="r-anniversary" placeholder="YYYY-MM-DD, M/D, or YYYY" value="${escapeHtml(toEditableDateString(r.anniversary||''))}"></div>
         <div class="roster-field"><label>Last Check-in</label><input type="date" class="r-lastcheckin" value="${escapeHtml(r.lastCheckin||'')}"></div>
-        <div class="roster-field"><label>QRZ</label>${r.callsign ? `<a class="external-link roster-qrz-link" href="${escapeHtml(qrzPageUrl(r))}" target="_blank" rel="noopener">QRZ Page</a>` : ''}</div>
-        <div class="roster-field"><label>License</label><div class="r-license">${licenseFieldHtml(r)}</div></div>
+        <div class="roster-field qrz-page"><label>QRZ</label>${r.callsign ? `<a class="external-link roster-qrz-link" href="${escapeHtml(qrzPageUrl(r))}" target="_blank" rel="noopener">QRZ Page</a>` : ''}</div>
+        <div class="roster-field license"><label>License</label><div class="r-license">${licenseFieldHtml(r)}</div></div>
         <div class="roster-field narrow" style="display:flex;flex-direction:column;">
           <label>Inactive</label>
-          <input type="checkbox" class="r-inactive" style="width:auto;height:38px;" ${r.inactive?'checked':''}>
+          <input type="checkbox" class="r-inactive" style="width:auto;height:38px;margin:0;" ${r.inactive?'checked':''}>
         </div>
         <div class="roster-entry-del"><button class="del-btn" title="Remove">✕</button></div>
       </div>
+      <div class="roster-line roster-bottom">
+      <div class="roster-bottom-fields">
       <div class="roster-line">
         <div class="roster-field narrow"><label>Area</label><input type="text" class="r-area" value="${escapeHtml(r.area||'')}"></div>
         <div class="roster-field narrow"><label>Region</label><input type="text" class="r-region" value="${escapeHtml(r.region||'')}"></div>
@@ -4555,13 +4565,15 @@ function rosterEntryHtml(r, idx){
         <div class="roster-field"><label>Email</label><input type="text" class="r-email" value="${escapeHtml(r.email||'')}"></div>
         <div class="roster-field"><label>Street</label><input type="text" class="r-street" value="${escapeHtml(r.street||'')}"></div>
         <div class="roster-field narrow"><label>ZIP</label><input type="text" class="r-zip" value="${escapeHtml(r.zip||'')}"></div>
-        ${hasBackend() ? `<div class="roster-field narrow" style="flex:0 0 auto;">
-          <label>QRZ</label>${photoImgHtml(r, 'roster-photo')}
-          <button class="secondary r-qrz" title="Look this station up: on QRZ.com when a login is saved (fresh photo), and in the FCC license database when not or when QRZ doesn't know it. Fills name, address, and email where blank, and updates the license class and expiration.">Look Up</button>
-        </div>` : ''}
       </div>
       <div class="roster-line">
         <div class="roster-field"><label>Notes</label><input type="text" class="r-notes" placeholder="Shown on the Main card at every net" value="${escapeHtml(stationNote(r))}"></div>
+      </div>
+      </div>
+        ${hasBackend() ? `<div class="roster-field narrow roster-photo-field">
+          <label>QRZ</label>${photoImgHtml(r, 'roster-photo')}
+          <button class="secondary r-qrz" title="Look this station up: on QRZ.com when a login is saved (fresh photo), and in the FCC license database when not or when QRZ doesn't know it. Fills name, address, and email where blank, and updates the license class and expiration.">Look Up</button>
+        </div>` : ''}
       </div>
     </div>
   `;
