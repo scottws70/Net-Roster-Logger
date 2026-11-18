@@ -1,5 +1,7 @@
 //! FCC license data for US callsigns, through two free lookup services built on the
-//! FCC's own database: HamDB.org first, callook.info if HamDB can't be reached.
+//! FCC's own database: callook.info first (it keeps up with new licenses; HamDB.org
+//! was found missing ones months old), then HamDB.org when callook.info can't answer
+//! or doesn't know the callsign.
 //! Used when there's no QRZ login, when QRZ doesn't know a callsign, and to add the
 //! license class and expiration date when QRZ's answer doesn't include them.
 
@@ -154,12 +156,17 @@ fn get(url: &str) -> Result<String, String> {
 /// Blocking; call it off the UI thread.
 pub fn lookup(callsign: &str) -> Result<Option<FccRecord>, String> {
     let Some(call) = us_base_call(callsign) else { return Ok(None) };
+    let callook = get(&format!("https://callook.info/{}/json", call)).and_then(|b| parse_callook(&b));
+    if let Ok(Some(found)) = callook {
+        return Ok(Some(found));
+    }
     let hamdb = get(&format!("https://api.hamdb.org/v1/{}/json/N8VCLNetLogger", call)).and_then(|b| parse_hamdb(&b));
-    match hamdb {
-        Ok(found) => Ok(found),
-        Err(first) => get(&format!("https://callook.info/{}/json", call))
-            .and_then(|b| parse_callook(&b))
-            .map_err(|second| format!("Couldn't reach the FCC lookup (HamDB: {}; callook.info: {})", first, second)),
+    match (callook, hamdb) {
+        (_, Ok(Some(found))) => Ok(Some(found)),
+        // Not found by whichever answered: not licensed (or too new for both)
+        (Ok(None), _) | (_, Ok(None)) => Ok(None),
+        (Err(first), Err(second)) => Err(format!("couldn't reach the FCC lookup (callook.info: {}; HamDB: {})", first, second)),
+        (Ok(Some(_)), _) => unreachable!(),
     }
 }
 
@@ -174,6 +181,12 @@ mod tests {
         assert_eq!(r.last_name.as_deref(), Some("WELLS"));
         assert!(r.expires.is_some());
         assert_eq!(lookup("ZZ9ZZZ").unwrap(), None);
+        // Licensed in 2026: on callook.info, missing from HamDB
+        let new = lookup("AL0R").unwrap().unwrap();
+        assert_eq!(new.last_name.as_deref(), Some("JONES"));
+        assert_eq!(new.first_name.as_deref(), Some("MATTHEW R"));
+        assert_eq!(new.city.as_deref(), Some("VALLEY"));
+        assert_eq!(new.license_class.as_deref(), Some("E"));
         assert_eq!(lookup("VE3ABC").unwrap(), None);
         let c = get("https://callook.info/AF5ID/json").and_then(|b| parse_callook(&b)).unwrap().unwrap();
         assert_eq!(c.last_name.as_deref(), Some("WELLS"));

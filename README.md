@@ -181,7 +181,7 @@ A third line holds Area, Region, Phone, Email, Street, and ZIP. Area and Region 
 In the installed app (and on a tablet connected to it), stations can be looked up for their photo, name, address, email, and license:
 
 - **With a [QRZ login](#qrzcom-login) saved**, lookups go to QRZ.com.
-- **With no QRZ login, or for a callsign QRZ doesn't know**, they go to the **FCC license database**, through the free HamDB.org lookup (or callook.info when HamDB can't be reached). The FCC has US callsigns only, and gives the license name and mailing address, class, and expiration date: no photo, nickname, or email.
+- **With no QRZ login, or for a callsign QRZ doesn't know**, they go to the **FCC license database**, through the free callook.info lookup (or HamDB.org when callook.info can't answer or doesn't know the callsign). The FCC has US callsigns only, and gives the license name and mailing address, class, and expiration date: no photo, nickname, or email.
 - When QRZ's answer lacks the license class or expiration date, those come from the FCC too.
 
 - **Look Up** on a station's card looks that one station up. It downloads a fresh copy of the station's QRZ photo and shows it on the card and on the Main roll-call card, and fills in **Name**, **Last Name**, **Email**, and the address where they're blank. Names and email you've typed are never overwritten. QRZ's nickname is used for Name when the station has one, middle initials are dropped, and all-caps license names and addresses are tidied up (`HIRAM P` → `Hiram`, `RR 1 BOX 5` → `RR 1 Box 5`, `MCCOOK` → `McCook`).
